@@ -5,15 +5,15 @@ const gameState = {
     isGameOver: false,
     score: 0,
     money: 0,
-    gameSpeed: 6, // Initial pixels per frame
+    gameSpeed: 6,
     speedMultiplier: 1,
-    timeElapsed: 0, // In seconds, for shop and speed increase
+    timeElapsed: 0, 
     lastShopTime: 0,
     lastSpeedIncrease: 0,
     isInvincible: false,
     isMeteorActive: false,
     isSlowActive: false,
-    slowdownFactor: 1, // 1 is normal speed. 1.1 is 10% slow.
+    slowdownFactor: 1,
 };
 
 // --- DOM Elements ---
@@ -34,20 +34,20 @@ const dom = {
 };
 
 // --- Player/Jump Constants ---
-const playerSize = 0.08 * window.innerHeight; // 8vh
-const groundHeight = 0.20 * window.innerHeight; // 20vh
-const jumpVelocity = 25; // Initial upward velocity
+const playerSize = 0.08 * window.innerHeight;
+const groundHeight = 0.20 * window.innerHeight;
+const jumpVelocity = 25;
 const gravity = 1.5;
-let playerY = 0; // Current Y offset from ground (in px)
-let playerVy = 0; // Vertical velocity (in px/frame)
+let playerY = 0;
+let playerVy = 0;
 
 // --- Game Loop and Object Management ---
 let gameLoopInterval;
 let spawnTimer = 0; 
-let spawnRate = 90; // Frames between object spawns (lower is faster)
+let spawnRate = 90;
 let lastFrameTime = performance.now();
 
-// --- Upgrade/Skill Data (Levels, Costs, Effects) ---
+// --- Upgrade/Skill Data ---
 const UPGRADES = {
     riskReward: { level: 0, costBase: 100, costMult: 2, effect: { obstacleRate: 0.05, moneyRate: 0.1 } },
     cooldownReduction: { level: 0, costBase: 150, costMult: 3, effect: { reduction: 0.05, maxCap: 0.75 } },
@@ -152,8 +152,13 @@ function resetGame() {
 function startGame() {
     resetGame();
     gameState.isGameRunning = true;
+    
+    // CRITICAL FIX: Hide screens and start the game view
     dom.titleScreen.classList.remove('active');
     dom.gameOverScreen.classList.remove('active');
+    
+    updatePlayerPosition(); 
+    
     dom.music.play().catch(e => console.log("Music auto-play prevented:", e));
     lastFrameTime = performance.now();
     gameLoopInterval = requestAnimationFrame(gameLoop);
@@ -250,7 +255,7 @@ function createCactus() {
     const cactus = document.createElement('div');
     cactus.className = 'game-object obstacle cactus';
     cactus.dataset.type = 'obstacle';
-    // Image is handled by CSS (background-image: url('assets/cactus.png');)
+    // Image linked via CSS: assets/cactus.png
     return cactus;
 }
 
@@ -261,7 +266,7 @@ function createBird() {
     
     const birdY = groundHeight + playerSize * (1.5 + Math.random() * 0.5); 
     bird.style.bottom = birdY + 'px';
-    // Image is handled by CSS (background-image: url('assets/bird.png');)
+    // Image linked via CSS: assets/bird.png
     return bird;
 }
 
@@ -271,10 +276,10 @@ function createCoin() {
     coin.dataset.value = '1';
     
     let coinY = Math.random() < 0.5 
-        ? groundHeight // Ground level
-        : groundHeight + playerSize * (0.5 + Math.random() * 1.5); // Air
+        ? groundHeight 
+        : groundHeight + playerSize * (0.5 + Math.random() * 1.5);
     coin.style.bottom = coinY + 'px';
-    // Image is handled by CSS (background-image: url('assets/coin.png');)
+    // Image linked via CSS: assets/coin.png
     return coin;
 }
 
@@ -285,7 +290,7 @@ function createDiamond() {
     
     const diamondY = groundHeight + playerSize * (1 + Math.random() * 2);
     diamond.style.bottom = diamondY + 'px';
-    // Image is handled by CSS (background-image: url('assets/diamond.png');)
+    // Image linked via CSS: assets/diamond.png
     return diamond;
 }
 
@@ -347,7 +352,7 @@ function checkCollision() {
     }
 }
 
-// --- Game Flow Control ---
+// --- Game Flow Control and Shop/Skill Logic (Unchanged) ---
 
 function updateGameStats(deltaTime) {
     gameState.timeElapsed += deltaTime;
@@ -393,8 +398,6 @@ function resumeGame() {
     gameLoopInterval = requestAnimationFrame(gameLoop);
 }
 
-// --- UI Updates and Shop Logic (Remains unchanged from previous version) ---
-
 function updateUI() {
     dom.scoreDisplay.textContent = `Score: ${gameState.score}`;
     dom.moneyDisplay.textContent = `💰 $${gameState.money}`;
@@ -406,7 +409,6 @@ function updateShopUI() {
     dom.upgradesList.innerHTML = '<h2>Upgrades (Stats)</h2>';
     dom.skillsList.innerHTML = '<h2>Skills (Active)</h2>';
 
-    // 1. Render Upgrades
     for (const key in UPGRADES) {
         const upgrade = UPGRADES[key];
         const nextLevel = upgrade.level + 1;
@@ -429,7 +431,6 @@ function updateShopUI() {
         dom.upgradesList.appendChild(itemDiv);
     }
 
-    // 2. Render Skills
     for (const key in SKILLS) {
         const skill = SKILLS[key];
         const nextLevel = skill.level + 1;
