@@ -3,79 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bảo Long - Mobile Runner</title>
+    <title>Dino Runner Remake</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="game-container">
         
-        <div id="game-screen">
+        <div id="background"></div>
 
-            <div id="background"></div>
+        <div id="hud">
+            <div class="hud-item">Dist: <span id="ui-dist">0</span>m</div>
+            <div class="hud-item">Time: <span id="ui-time">0</span>s</div>
+            <div class="hud-item money">$: <span id="ui-money">0</span></div>
+        </div>
 
-            <div id="stats-ui">
-                <span id="score-display">Score: 0</span>
-                <span id="money-display">💰 $0</span>
+        <div id="skills-container">
+            <div class="skill-btn" id="btn-skill-1" onclick="useSkill(1)">
+                <span>Slow</span>
+                <div class="cooldown-overlay"></div>
             </div>
-
-            <div id="player"></div>
-
-            <div id="game-objects"></div>
-
-            <div id="meteor-flash"></div>
-
-            <div id="skill-ui">
-                <button id="skill-slow" class="skill-button" data-skill-id="slow" disabled>
-                    Time Slow (Lvl 1)
-                    <div class="cooldown-overlay"></div>
-                </button>
-
-                <button id="skill-shield" class="skill-button" data-skill-id="shield" disabled>
-                    Shield (Lvl 0) - Lock
-                    <div class="cooldown-overlay"></div>
-                </button>
-
-                <button id="skill-meteor" class="skill-button" data-skill-id="meteor" disabled>
-                    Meteor Call (Lvl 0) - Lock
-                    <div class="cooldown-overlay"></div>
-                </button>
+            <div class="skill-btn locked" id="btn-skill-2" onclick="useSkill(2)">
+                <span>Shield</span>
+                <div class="cooldown-overlay"></div>
+            </div>
+            <div class="skill-btn locked" id="btn-skill-3" onclick="useSkill(3)">
+                <span>Meteor</span>
+                <div class="cooldown-overlay"></div>
             </div>
         </div>
 
-        <div id="title-screen" class="screen active">
-            <h1>Bảo Long Runner</h1>
-            <p>Tap to Jump, Survive, and Upgrade!</p>
-            <button id="start-game-btn">Start Game</button>
+        <div id="mobile-controls">
+            <div id="duck-btn">DUCK</div>
         </div>
 
-        <div id="game-over-screen" class="screen">
-            <h1>Game Over!</h1>
-            <p>Final Score: <span id="final-score">0</span></p>
-            <p>Total Money: <span id="final-money">0</span></p>
-            <button id="restart-game-btn">Restart Game</button>
+        <div id="world">
+            <img id="dino" src="assets/dino.png" alt="Dino">
         </div>
 
-        <div id="shop-screen" class="screen">
-            <h1>The Shop (2-Minute Pause)</h1>
-            <p>Your Money: <span id="shop-money">0</span></p>
-            <p class="shop-note">Spend wisely before resuming the run!</p>
-
-            <div id="upgrades-list">
-                <h2>Upgrades (Stats)</h2>
+        <div id="shop-overlay" class="hidden">
+            <h2>TRADER'S STOP</h2>
+            <div class="shop-grid">
+                <div class="shop-item" onclick="buyStat('risk')">
+                    <h3>Risk Reward</h3>
+                    <p>Obstacles +5% Spd, Money +10%</p>
+                    <button id="buy-risk">Buy $100</button>
+                </div>
+                <div class="shop-item" onclick="buyStat('cd')">
+                    <h3>Quick Reflex</h3>
+                    <p>Cooldowns -5%</p>
+                    <button id="buy-cd">Buy $150</button>
+                </div>
+                <div class="shop-item" onclick="buyStat('luck')">
+                    <h3>Luck</h3>
+                    <p>Diamond Chance +5%</p>
+                    <button id="buy-luck">Buy $200</button>
+                </div>
+                
+                <div class="shop-item" onclick="upgradeSkill(1)">
+                    <h3>Upgrade Slow</h3>
+                    <p>Slower Time</p>
+                    <button id="upg-skill-1">Buy $50</button>
+                </div>
+                <div class="shop-item" onclick="upgradeSkill(2)">
+                    <h3>Unlock/Upg Shield</h3>
+                    <p>Invincible Duration</p>
+                    <button id="upg-skill-2">Unlock $200</button>
+                </div>
+                <div class="shop-item" onclick="upgradeSkill(3)">
+                    <h3>Unlock/Upg Meteor</h3>
+                    <p>Meteor Mode</p>
+                    <button id="upg-skill-3">Unlock $300</button>
+                </div>
             </div>
-            
-            <div id="skills-list">
-                <h2>Skills (Active)</h2>
-            </div>
-
-            <button id="resume-game-btn">Resume Game</button>
+            <button id="close-shop">RESUME RUN</button>
         </div>
+
+        <div id="start-screen">
+            <h1 id="start-title">DINO RUNNER</h1>
+            <p>Tap to Start</p>
+        </div>
+        
+        <div id="effect-overlay"></div>
     </div>
 
-    <audio id="game-music" loop>
-        <source src="assets/music.mp3" type="audio/mp3">
-    </audio>
+    <audio id="bgm" src="assets/music.mp3" loop></audio>
+    <audio id="sfx-dead" src="assets/dead.mp3"></audio>
 
     <script src="script.js"></script>
 </body>

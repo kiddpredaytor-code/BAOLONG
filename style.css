@@ -1,300 +1,206 @@
-/* Base Styles and Mobile Focus */
-:root {
-    --player-size: 8vh;
-    --ground-height: 20vh;
-    --game-speed: 1s;
-}
-
-html, body {
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Prevent scrolling on mobile */
-    touch-action: manipulation; /* Prevent default touch actions like zooming/scrolling */
-    background-color: #2c3e50;
-    font-family: Arial, sans-serif;
-    color: white;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none; /* Prevents zooming/scrolling on mobile */
+    font-family: 'Courier New', Courier, monospace;
 }
 
-#game-container {
-    width: 100vw;
+body {
+    background: #202124;
+    overflow: hidden;
     height: 100vh;
-    position: relative;
+    width: 100vw;
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
 }
 
-/* Screens (Title, Game Over, Shop) */
-.screen {
-    position: absolute;
-    width: 80%;
-    max-width: 500px;
-    padding: 20px;
-    background-color: rgba(0, 0, 0, 0.9);
-    border: 3px solid gold;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 100;
-    display: none; /* Default hidden */
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-    /* Centering Fix */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.screen.active {
-    display: block;
-}
-
-.screen h1 {
-    color: gold;
-    margin-top: 0;
-}
-
-.screen button, .shop-item button {
-    padding: 10px 20px;
-    margin: 10px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    background-color: #3498db;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    transition: background-color 0.2s;
-}
-
-/* Game Screen */
-#game-screen {
+#game-container {
+    position: relative;
     width: 100%;
     height: 100%;
-    position: relative;
-    background-color: #7ED9CC; /* Base sky color */
+    max-width: 800px; /* PC cap */
+    background-color: #f7f7f7;
     overflow: hidden;
-    user-select: none;
+    border: 2px solid #535353;
 }
 
-/* Background (bg.png) */
+/* Background */
 #background {
     position: absolute;
     bottom: 0;
-    left: 0;
     width: 100%;
-    height: var(--ground-height);
-    background-color: #4CAF50; /* Fallback for ground color */
-    z-index: 1;
-    
-    /* ASSET INTEGRATION: bg.png */
-    background-image: url('assets/bg.png');
-    background-size: cover;
-    background-repeat: repeat-x;
+    height: 100%;
+    background: url('assets/bg.png') repeat-x bottom;
+    background-size: auto 50%; /* Adjust based on your image */
+    z-index: 0;
 }
 
-/* Player (dino.png) */
-#player {
-    position: absolute;
-    bottom: var(--ground-height);
-    left: 5%;
-    width: var(--player-size);
-    height: var(--player-size);
-    z-index: 10;
-    transition: transform 0.1s ease-out;
-    background-color: transparent;
-    
-    /* ASSET INTEGRATION: dino.png */
-    background-image: url('assets/dino.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-
-/* Game Objects (Obstacles/Currency) */
-.game-object {
-    position: absolute;
-    bottom: var(--ground-height);
-    transform: translateX(100vw);
-    width: 5vh;
-    height: 5vh;
-    z-index: 5;
-    will-change: transform;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-color: transparent;
-}
-
-.cactus {
-    height: 8vh;
-    width: 5vh;
-    /* ASSET INTEGRATION: cactus.png */
-    background-image: url('assets/cactus.png');
-}
-
-.bird {
-    height: 6vh;
-    width: 8vh;
-    /* ASSET INTEGRATION: bird.png */
-    background-image: url('assets/bird.png');
-}
-
-.coin {
-    height: 4vh;
-    width: 4vh;
-    border-radius: 50%;
-    /* ASSET INTEGRATION: coin.png */
-    background-image: url('assets/coin.png');
-}
-
-.diamond {
-    /* ASSET INTEGRATION: diamond.png */
-    background-image: url('assets/diamond.png');
-}
-
-
-/* UI Elements */
-#stats-ui {
+/* HUD */
+#hud {
     position: absolute;
     top: 10px;
     left: 10px;
     right: 10px;
     display: flex;
     justify-content: space-between;
-    font-size: 1.5rem;
     font-weight: bold;
-    color: #2c3e50;
-    z-index: 50;
-    padding: 5px 10px;
-    background-color: rgba(255, 255, 255, 0.7);
-    border-radius: 5px;
+    font-size: 1.2rem;
+    z-index: 10;
+    color: #535353;
 }
+
+/* World & Entities */
+#world {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#dino {
+    position: absolute;
+    height: 60px;
+    width: auto;
+    left: 50px;
+    bottom: 0; /* JS controls this */
+    z-index: 5;
+}
+
+.obstacle {
+    position: absolute;
+    bottom: 0; /* JS controls this specifically for birds */
+    z-index: 4;
+}
+.cactus { height: 50px; width: auto; }
+.bird { height: 40px; width: auto; bottom: 60px; }
+
+.coin, .diamond {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 12px;
+}
+.coin { background: gold; border: 2px solid orange; color: #333; }
+.diamond { background: cyan; border: 2px solid blue; color: white; }
 
 /* Skills UI */
-#skill-ui {
+#skills-container {
     position: absolute;
-    bottom: 5px;
-    right: 5px;
+    bottom: 20px;
+    right: 20px;
     display: flex;
-    gap: 5px;
-    z-index: 50;
+    gap: 10px;
+    z-index: 20;
 }
 
-.skill-button {
-    position: relative;
-    width: 10vh;
-    height: 6vh;
-    font-size: 0.7rem;
-    font-weight: bold;
+.skill-btn {
+    width: 60px;
+    height: 60px;
+    background: #333;
     color: white;
-    background-color: #2980b9;
-    border: 2px solid #204060;
-    border-radius: 5px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+    text-align: center;
     cursor: pointer;
+    position: relative;
     overflow: hidden;
-    padding: 0;
-    transition: background-color 0.2s;
+    border: 2px solid white;
 }
-
-.skill-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
-
-.skill-button[data-unlocked="false"] {
-    background-color: #c0392b; /* Locked color */
-}
+.skill-btn.locked { opacity: 0.5; background: #555; pointer-events: none; }
+.skill-btn:active { transform: scale(0.95); }
 
 .cooldown-overlay {
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 0;
     width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    transform: translateY(100%);
-    transition: transform linear;
-    pointer-events: none;
+    height: 0%;
+    background: rgba(255, 0, 0, 0.5);
+    transition: height linear;
 }
 
-/* Meteor Effect Flash (Uses meteor.png indirectly for visual effect) */
-#meteor-flash {
+/* Mobile Controls */
+#mobile-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 20;
+}
+#duck-btn {
+    width: 80px;
+    height: 80px;
+    background: rgba(0,0,0,0.1);
+    border: 2px solid #535353;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+#duck-btn:active { background: rgba(0,0,0,0.3); }
+
+/* Screens & Overlays */
+#shop-overlay, #start-screen {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    /* The image itself is not displayed, just the white flash */
-    /* If you wanted to display the meteor, you'd add: background-image: url('assets/meteor.png'); */
-    background-color: rgba(255, 255, 255, 0.9); 
-    z-index: 90;
-    display: none;
-    opacity: 0;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 }
 
-.flash-active {
-    display: block !important;
-    animation: flash 0.1s ease-out forwards;
-}
-
-@keyframes flash {
-    0% { opacity: 0; }
-    50% { opacity: 1; }
-    100% { opacity: 0; }
-}
-
-/* Shop Specific Styles */
-#shop-screen h1 { margin-bottom: 5px; }
-.shop-note { color: #f39c12; margin-bottom: 15px; }
-
-#upgrades-list, #skills-list {
-    margin-bottom: 20px;
-    padding: 10px;
-    border: 1px solid #7f8c8d;
-    border-radius: 5px;
-}
-
-#upgrades-list h2, #skills-list h2 {
-    color: #3498db;
-    margin-top: 0;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #3498db;
-    padding-bottom: 5px;
+.shop-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
 }
 
 .shop-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px dashed #7f8c8d;
+    border: 1px solid #333;
+    padding: 10px;
+    background: #eee;
+    font-size: 0.8rem;
 }
 
-.shop-item:last-child {
-    border-bottom: none;
+button {
+    padding: 5px 10px;
+    margin-top: 5px;
+    background: #333;
+    color: white;
+    border: none;
+    cursor: pointer;
 }
+button:disabled { opacity: 0.5; }
 
-.item-info {
-    text-align: left;
-    flex-grow: 1;
-}
+.hidden { display: none !important; }
 
-.item-info strong {
-    font-size: 1.1rem;
-    color: #2ecc71;
-}
-
-.item-info p {
-    margin: 2px 0;
-    font-size: 0.9rem;
-    color: #bdc3c7;
-}
-
-.shop-item button {
-    margin-left: 15px;
-    padding: 8px 15px;
-    font-size: 1rem;
-    min-width: 100px;
-}
-
-.shop-item button:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
+#effect-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 30;
+    opacity: 0;
+    transition: opacity 0.3s;
 }
