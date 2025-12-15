@@ -1,9 +1,13 @@
 /* ================= CONFIG & STATE ================= */
 const CONFIG = {
-    GRAVITY: 0.6,
-    JUMP_FORCE: -10, // Negative goes up
-    GROUND_Y: 20,    // px from bottom
-    BASE_SPEED: 5,
+    // PHYSICS: Positive goes UP, Negative goes DOWN
+    GRAVITY: -0.8,     
+    JUMP_FORCE: 15,    
+    
+    // VISUALS
+    VISUAL_OFFSET: 120, // Lifts the game 120px from bottom (fixes "too low" issue)
+    
+    BASE_SPEED: 6,
     SHOP_INTERVAL: 60, // Seconds
 };
 
@@ -16,7 +20,7 @@ const STATE = {
     distance: 0,
     money: 0,
     speed: CONFIG.BASE_SPEED,
-    gameTime: 0, // Tracks actual gameplay seconds for shop
+    gameTime: 0, 
     shopTimer: 0,
     
     // Entity Management
@@ -24,21 +28,21 @@ const STATE = {
     coins: [],
     
     // Dino Physics
-    dinoY: CONFIG.GROUND_Y,
+    dinoY: 0,
     dinoVy: 0,
     isJumping: false,
-    isDucking: false,
+    isDucking: false, // Core state for ducking
     
-    // Stats / Shop
-    stat_risk_lvl: 0, // Costs 100 + 10*lvl
-    stat_cd_lvl: 0,   // Costs 150 + 20*lvl
-    stat_luck_lvl: 0, // Costs 200 + 10*lvl
+    // Stats
+    stat_risk_lvl: 0, 
+    stat_cd_lvl: 0,   
+    stat_luck_lvl: 0, 
     
     // Skills
     skills: {
-        1: { name: "Time Slow", unlocked: true, level: 1, active: false, cd: 0, maxCd: 15, duration: 300 }, // Duration in frames
-        2: { name: "Shield", unlocked: false, level: 1, active: false, cd: 0, maxCd: 20, duration: 60 },
-        3: { name: "Meteor", unlocked: false, level: 1, active: false, cd: 0, maxCd: 30, duration: 60 }
+        1: { name: "Time Slow", unlocked: true, level: 1, active: false, cd: 0, maxCd: 15 },
+        2: { name: "Shield", unlocked: false, level: 1, active: false, cd: 0, maxCd: 20 },
+        3: { name: "Meteor", unlocked: false, level: 1, active: false, cd: 0, maxCd: 30 }
     }
 };
 
@@ -60,20 +64,22 @@ const els = {
 
 /* ================= INITIALIZATION ================= */
 function init() {
-    // Inputs
+    // Keyboard Inputs
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    // Mobile Inputs
+    // Mobile Inputs: JUMP on general tap (outside controls)
     els.container.addEventListener('touchstart', handleTouchStart);
-    els.container.addEventListener('touchend', handleTouchEnd);
-    document.getElementById('duck-btn').addEventListener('touchstart', (e) => {
-        e.stopPropagation(); // Prevent jumping
-        STATE.isDucking = true;
+    
+    // Mobile Inputs: DUCK Button
+    const duckBtn = document.getElementById('duck-btn');
+    duckBtn.addEventListener('touchstart', (e) => {
+        e.stopPropagation(); 
+        STATE.isDucking = true; // Sets the state when held
     });
-    document.getElementById('duck-btn').addEventListener('touchend', (e) => {
+    duckBtn.addEventListener('touchend', (e) => {
         e.stopPropagation();
-        STATE.isDucking = false;
+        STATE.isDucking = false; // Resets the state when touch released
     });
 
     document.getElementById('start-screen').addEventListener('click', startGame);
@@ -86,7 +92,6 @@ function init() {
 function startGame() {
     if (STATE.isPlaying) return;
     
-    // Audio Context unlock
     els.bgm.play().catch(e => console.log("Audio requires interaction"));
     
     resetGame();
@@ -104,25 +109,23 @@ function resetGame() {
     STATE.money = 0;
     STATE.gameTime = 0;
     STATE.speed = CONFIG.BASE_SPEED;
-    STATE.dinoY = CONFIG.GROUND_Y;
+    STATE.dinoY = 0;
     STATE.dinoVy = 0;
     STATE.obstacles = [];
     STATE.coins = [];
     STATE.frames = 0;
     
-    // Clear DOM entities
     const entities = document.querySelectorAll('.obstacle, .coin, .diamond');
     entities.forEach(e => e.remove());
     
-    // Reset Skills
     resetSkillCooldowns();
 
-    // Reset Visuals
     els.dino.src = "assets/dino.png";
     els.dino.style.transform = "rotate(0deg)";
-    els.dino.style.bottom = CONFIG.GROUND_Y + "px";
+    els.dino.style.filter = "none";
     els.effectOverlay.style.opacity = 0;
-    els.effectOverlay.style.background = "transparent";
+    
+    draw();
 }
 
 /* ================= GAME LOOP ================= */
@@ -133,82 +136,71 @@ function loop(timestamp) {
     const dt = timestamp - lastTime;
     
     if (!STATE.isPaused && !STATE.isGameOver) {
-        if (dt > 16) { // Cap at ~60fps logic
+        if (dt > 16) { 
             update();
             draw();
             lastTime = timestamp;
         }
     }
-    
     requestAnimationFrame(loop);
 }
 
 function update() {
     STATE.frames++;
     
-    // Time & Distance
     if (STATE.frames % 60 === 0) {
         STATE.timeAlive++;
         STATE.gameTime++;
-        
-        // Shop Trigger
         if (STATE.gameTime > 0 && STATE.gameTime % CONFIG.SHOP_INTERVAL === 0) {
             openShop();
         }
     }
     STATE.distance += (STATE.speed / 10);
     
-    // Physics
-    applyGravity();
-    handleSkills();
+    applyPhysics();
     moveEntities();
     spawnManager();
     checkCollisions();
     
-    // HUD
     els.uiDist.innerText = Math.floor(STATE.distance);
     els.uiTime.innerText = STATE.timeAlive;
     els.uiMoney.innerText = STATE.money;
 }
 
 /* ================= PHYSICS & MECHANICS ================= */
-function applyGravity() {
-    // Jump Logic
-    if (STATE.dinoY > CONFIG.GROUND_Y || STATE.isJumping) {
-        STATE.dinoY += STATE.dinoVy;
+function applyPhysics() {
+    // Apply Velocity
+    STATE.dinoY += STATE.dinoVy;
+    
+    // Gravity (Only if in air)
+    if (STATE.dinoY > 0 || STATE.dinoVy > 0) {
         STATE.dinoVy += CONFIG.GRAVITY;
     }
     
     // Floor Collision
-    if (STATE.dinoY <= CONFIG.GROUND_Y) {
-        STATE.dinoY = CONFIG.GROUND_Y;
+    if (STATE.dinoY <= 0) {
+        STATE.dinoY = 0;
         STATE.dinoVy = 0;
         STATE.isJumping = false;
     }
 
-    // Ducking Visual
-    if (STATE.isDucking) {
-        els.dino.style.height = "30px"; // Visual duck
-    } else {
-        els.dino.style.height = "60px";
-    }
+    // Ducking Hitbox Visual (This line toggles the dino size: 60px default, 30px ducking)
+    els.dino.style.height = STATE.isDucking ? "30px" : "60px";
 }
 
 function spawnManager() {
-    // Risk Reward Stats
-    const spawnRateMod = 1 + (STATE.stat_risk_lvl * 0.10); // +10% money spawn
-    const obsSpeedMod = 1 + (STATE.stat_risk_lvl * 0.05); // +5% speed
+    const spawnRateMod = 1 + (STATE.stat_risk_lvl * 0.10); 
+    const obsSpeedMod = 1 + (STATE.stat_risk_lvl * 0.05);
 
-    // Obstacle Spawning
-    // Base chance per frame approx 1-2%
+    // Obstacles
     if (Math.random() < 0.015) {
         if (STATE.obstacles.length === 0 || 
-           (800 - STATE.obstacles[STATE.obstacles.length-1].x > 250)) { // Min distance
+           (800 - STATE.obstacles[STATE.obstacles.length-1].x > 300)) { 
             spawnObstacle(obsSpeedMod);
         }
     }
 
-    // Coin Spawning
+    // Coins
     if (Math.random() < (0.01 * spawnRateMod)) {
         spawnCoin();
     }
@@ -221,10 +213,16 @@ function spawnObstacle(speedMod) {
     el.src = type === 'bird' ? 'assets/bird.png' : 'assets/cactus.png';
     els.world.appendChild(el);
 
+    // Bird Heights: Low Bird (must jump): 10px; High Bird (must duck): 50px
+    let obsY = 0;
+    if (type === 'bird') {
+        obsY = Math.random() > 0.5 ? 10 : 50;
+    }
+
     STATE.obstacles.push({
         el: el,
-        x: 800, // Start off screen right
-        y: type === 'bird' ? (Math.random() > 0.5 ? 20 : 60) : CONFIG.GROUND_Y,
+        x: 900,
+        y: obsY,
         w: type === 'bird' ? 40 : 30,
         h: type === 'bird' ? 30 : 50,
         type: type,
@@ -233,7 +231,7 @@ function spawnObstacle(speedMod) {
 }
 
 function spawnCoin() {
-    const isDiamond = Math.random() < (0.1 + (STATE.stat_luck_lvl * 0.05)); // Luck Stat
+    const isDiamond = Math.random() < (0.1 + (STATE.stat_luck_lvl * 0.05));
     const el = document.createElement('div');
     el.className = isDiamond ? 'diamond' : 'coin';
     el.innerText = isDiamond ? '20' : '$';
@@ -241,8 +239,8 @@ function spawnCoin() {
 
     STATE.coins.push({
         el: el,
-        x: 800,
-        y: Math.random() * 100 + 40, // Air spawn
+        x: 900,
+        y: Math.random() * 100 + 40,
         w: 30,
         h: 30,
         value: isDiamond ? 20 : 1
@@ -254,16 +252,15 @@ function moveEntities() {
     for (let i = STATE.obstacles.length - 1; i >= 0; i--) {
         let obs = STATE.obstacles[i];
         
-        // Skill 1: Time Slow
         let moveSpeed = obs.speed;
-        if (STATE.skills[1].active) {
-            let slowAmt = 0.05 * STATE.skills[1].level; // 5% per level
+        if (STATE.skills[1].active) { // Skill 1: Time Slow
+            let slowAmt = 0.05 * STATE.skills[1].level; 
             moveSpeed = moveSpeed * (1 - slowAmt);
         }
 
         obs.x -= moveSpeed;
         
-        if (obs.x < -50) {
+        if (obs.x < -100) {
             obs.el.remove();
             STATE.obstacles.splice(i, 1);
         }
@@ -272,8 +269,8 @@ function moveEntities() {
     // Coins
     for (let i = STATE.coins.length - 1; i >= 0; i--) {
         let c = STATE.coins[i];
-        c.x -= STATE.speed; // Coins move with world speed
-        if (c.x < -50) {
+        c.x -= STATE.speed;
+        if (c.x < -100) {
             c.el.remove();
             STATE.coins.splice(i, 1);
         }
@@ -281,18 +278,19 @@ function moveEntities() {
 }
 
 function checkCollisions() {
-    // Dino Hitbox
+    // Dino Hitbox (Relative to game world 0, not screen)
     const dinoRect = {
-        x: 50 + 10, // Padding
+        x: 50 + 10,
         y: STATE.dinoY,
         w: 40,
+        // DUCKING COLLISION: height changes when ducking
         h: STATE.isDucking ? 30 : 60
     };
 
     // Obstacles
-    if (!STATE.skills[2].active && !STATE.skills[3].active) { // Not Invincible
+    if (!STATE.skills[2].active && !STATE.skills[3].active) {
         STATE.obstacles.forEach(obs => {
-            if (rectIntersect(dinoRect, {x: obs.x, y: obs.y, w: obs.w, h: obs.h})) {
+            if (rectIntersect(dinoRect, obs)) {
                 gameOver();
             }
         });
@@ -301,8 +299,7 @@ function checkCollisions() {
     // Coins
     for (let i = STATE.coins.length - 1; i >= 0; i--) {
         let c = STATE.coins[i];
-        // Visual hitbox for coin is slightly larger
-        if (rectIntersect(dinoRect, {x: c.x, y: c.y, w: c.w, h: c.h})) {
+        if (rectIntersect(dinoRect, c)) {
             STATE.money += c.value;
             c.el.remove();
             STATE.coins.splice(i, 1);
@@ -318,19 +315,19 @@ function rectIntersect(r1, r2) {
 }
 
 function draw() {
-    // Draw Dino
-    els.dino.style.bottom = STATE.dinoY + "px";
+    // Apply Visual Offset (Lifting the game up)
+    const offset = CONFIG.VISUAL_OFFSET;
 
-    // Draw Obstacles
+    els.dino.style.bottom = (STATE.dinoY + offset) + "px";
+
     STATE.obstacles.forEach(obs => {
         obs.el.style.left = obs.x + "px";
-        obs.el.style.bottom = obs.y + "px";
+        obs.el.style.bottom = (obs.y + offset) + "px";
     });
 
-    // Draw Coins
     STATE.coins.forEach(c => {
         c.el.style.left = c.x + "px";
-        c.el.style.bottom = c.y + "px";
+        c.el.style.bottom = (c.y + offset) + "px";
     });
 }
 
@@ -346,42 +343,43 @@ function gameOver() {
 /* ================= INPUTS ================= */
 function handleKeyDown(e) {
     if (STATE.isShopOpen) return;
+    
     if (e.code === 'Space' || e.code === 'ArrowUp') jump();
-    if (e.code === 'ArrowDown') STATE.isDucking = true;
+    
+    if (e.code === 'ArrowDown') {
+        STATE.isDucking = true; // Set duck state on key down
+    }
+    
     if (e.code === 'Digit1') useSkill(1);
     if (e.code === 'Digit2') useSkill(2);
     if (e.code === 'Digit3') useSkill(3);
 }
 
 function handleKeyUp(e) {
-    if (e.code === 'ArrowDown') STATE.isDucking = false;
+    if (e.code === 'ArrowDown') STATE.isDucking = false; // Reset duck state on key up
 }
 
 function handleTouchStart(e) {
-    if (STATE.isShopOpen) return;
-    // Simple logic: tap top half jump, bottom half? No, button for duck provided.
+    // Ignore taps on the skill and duck buttons
+    if (STATE.isShopOpen || e.target.closest('#skills-container') || e.target.id === 'duck-btn') return;
     jump();
 }
-function handleTouchEnd(e) {}
 
 function jump() {
-    if (STATE.dinoY === CONFIG.GROUND_Y) {
+    // Can only jump if near ground (tolerance 5px)
+    if (Math.abs(STATE.dinoY) < 5) {
         STATE.dinoVy = CONFIG.JUMP_FORCE;
         STATE.isJumping = true;
     }
 }
 
-/* ================= SKILLS SYSTEM ================= */
+/* ================= SKILLS & SHOP ================= */
 function useSkill(id) {
     const skill = STATE.skills[id];
     if (!skill.unlocked || skill.active || skill.cd > 0) return;
 
     skill.active = true;
-    skill.cd = skill.maxCd;
-    
-    // Apply CD Reduction Stat
-    const cdReduction = Math.min(0.75, STATE.stat_cd_lvl * 0.05);
-    skill.cd = skill.cd * (1 - cdReduction);
+    skill.cd = skill.maxCd * (1 - Math.min(0.75, STATE.stat_cd_lvl * 0.05));
 
     activateSkillEffect(id);
     startCooldownUI(id, skill.cd);
@@ -389,31 +387,25 @@ function useSkill(id) {
 
 function activateSkillEffect(id) {
     const skill = STATE.skills[id];
-    let durationSec = 0;
+    let durationSec = 1 + skill.level;
 
-    if (id === 1) {
-        // Slow
+    if (id === 1) { // Slow
         els.effectOverlay.style.background = "rgba(100, 255, 100, 0.2)";
         els.effectOverlay.style.opacity = 1;
         setTimeout(() => {
             skill.active = false;
             els.effectOverlay.style.opacity = 0;
-        }, 5000); // 5 sec visual duration, logic handled in moveEntities
+        }, 5000); 
     } 
-    else if (id === 2) {
-        // Shield
-        durationSec = 1 + skill.level;
+    else if (id === 2) { // Shield
         els.dino.style.filter = "drop-shadow(0 0 10px cyan)";
         setTimeout(() => {
             skill.active = false;
             els.dino.style.filter = "none";
         }, durationSec * 1000);
     } 
-    else if (id === 3) {
-        // Meteor
-        durationSec = 1 + skill.level;
+    else if (id === 3) { // Meteor
         const speedBoost = 0.5 + (0.1 * skill.level);
-        
         els.dino.src = "assets/metor.png";
         const oldSpeed = STATE.speed;
         STATE.speed = STATE.speed * (1 + speedBoost);
@@ -431,20 +423,10 @@ function startCooldownUI(id, seconds) {
     const overlay = btn.querySelector('.cooldown-overlay');
     overlay.style.transition = `height ${seconds}s linear`;
     overlay.style.height = '100%';
-    
-    // Force reflow
     void overlay.offsetWidth; 
-    
     overlay.style.height = '0%';
     
-    setTimeout(() => {
-        STATE.skills[id].cd = 0;
-    }, seconds * 1000);
-}
-
-function handleSkills() {
-    // Logic mostly handled in activation or update loop, 
-    // but cooldown timers are automated via CSS/Timeouts for simplicity here
+    setTimeout(() => { STATE.skills[id].cd = 0; }, seconds * 1000);
 }
 
 function resetSkillCooldowns() {
@@ -457,7 +439,6 @@ function resetSkillCooldowns() {
     }
 }
 
-/* ================= SHOP SYSTEM ================= */
 function openShop() {
     STATE.isPaused = true;
     STATE.isShopOpen = true;
@@ -471,25 +452,23 @@ function closeShop() {
     STATE.isShopOpen = false;
     els.shop.classList.add('hidden');
     els.bgm.play();
-    lastTime = performance.now(); // Prevent large delta jump
+    lastTime = performance.now(); 
 }
 
 function updateShopUI() {
-    // Update button texts and disabled states
     const costRisk = 100 + (STATE.stat_risk_lvl * 10);
     document.getElementById('buy-risk').innerText = `Buy $${costRisk}`;
     
     const costCd = 150 + (STATE.stat_cd_lvl * 20);
     const cdBtn = document.getElementById('buy-cd');
     cdBtn.innerText = STATE.stat_cd_lvl >= 15 ? "MAX" : `Buy $${costCd}`;
-    if (STATE.stat_cd_lvl >= 15) cdBtn.disabled = true;
+    cdBtn.disabled = STATE.stat_cd_lvl >= 15;
 
     const costLuck = 200 + (STATE.stat_luck_lvl * 10);
     const luckBtn = document.getElementById('buy-luck');
-    luckBtn.innerText = STATE.stat_luck_lvl >= 10 ? "MAX" : `Buy $${costLuck}`; // 50% max
-    if (STATE.stat_luck_lvl >= 10) luckBtn.disabled = true;
+    luckBtn.innerText = STATE.stat_luck_lvl >= 10 ? "MAX" : `Buy $${costLuck}`;
+    luckBtn.disabled = STATE.stat_luck_lvl >= 10;
 
-    // Skills
     const s1 = STATE.skills[1];
     document.getElementById('upg-skill-1').innerText = `Lvl ${s1.level+1} ($50)`;
 
@@ -501,26 +480,18 @@ function updateShopUI() {
 }
 
 window.buyStat = function(type) {
+    let cost = 0;
     if (type === 'risk') {
-        const cost = 100 + (STATE.stat_risk_lvl * 10);
-        if (STATE.money >= cost) {
-            STATE.money -= cost;
-            STATE.stat_risk_lvl++;
-        }
+        cost = 100 + (STATE.stat_risk_lvl * 10);
+        if (STATE.money >= cost) { STATE.money -= cost; STATE.stat_risk_lvl++; }
     } else if (type === 'cd') {
         if (STATE.stat_cd_lvl >= 15) return;
-        const cost = 150 + (STATE.stat_cd_lvl * 20);
-        if (STATE.money >= cost) {
-            STATE.money -= cost;
-            STATE.stat_cd_lvl++;
-        }
+        cost = 150 + (STATE.stat_cd_lvl * 20);
+        if (STATE.money >= cost) { STATE.money -= cost; STATE.stat_cd_lvl++; }
     } else if (type === 'luck') {
         if (STATE.stat_luck_lvl >= 10) return;
-        const cost = 200 + (STATE.stat_luck_lvl * 10);
-        if (STATE.money >= cost) {
-            STATE.money -= cost;
-            STATE.stat_luck_lvl++;
-        }
+        cost = 200 + (STATE.stat_luck_lvl * 10);
+        if (STATE.money >= cost) { STATE.money -= cost; STATE.stat_luck_lvl++; }
     }
     updateShopUI();
     els.uiMoney.innerText = STATE.money;
@@ -530,40 +501,21 @@ window.upgradeSkill = function(id) {
     const skill = STATE.skills[id];
     let cost = 0;
 
-    if (id === 1) {
-        cost = 50;
-        if (STATE.money >= cost) {
-            STATE.money -= cost;
+    if (id === 1) cost = 50;
+    else if (id === 2) cost = skill.unlocked ? 100 : 200;
+    else if (id === 3) cost = skill.unlocked ? 200 : 300;
+
+    if (STATE.money >= cost) {
+        STATE.money -= cost;
+        if ((id === 2 || id === 3) && !skill.unlocked) {
+            skill.unlocked = true;
+            document.getElementById(`btn-skill-${id}`).classList.remove('locked');
+        } else {
             skill.level++;
-        }
-    } 
-    else if (id === 2) {
-        cost = skill.unlocked ? 100 : 200;
-        if (STATE.money >= cost) {
-            STATE.money -= cost;
-            if (!skill.unlocked) {
-                skill.unlocked = true;
-                document.getElementById('btn-skill-2').classList.remove('locked');
-            } else {
-                skill.level++;
-            }
-        }
-    } 
-    else if (id === 3) {
-        cost = skill.unlocked ? 200 : 300;
-        if (STATE.money >= cost) {
-            STATE.money -= cost;
-            if (!skill.unlocked) {
-                skill.unlocked = true;
-                document.getElementById('btn-skill-3').classList.remove('locked');
-            } else {
-                skill.level++;
-            }
         }
     }
     updateShopUI();
     els.uiMoney.innerText = STATE.money;
 };
 
-// Start
 init();
