@@ -5,15 +5,15 @@ const gameState = {
     isGameOver: false,
     score: 0,
     money: 0,
-    gameSpeed: 6,
+    gameSpeed: 6, // Initial pixels per frame
     speedMultiplier: 1,
-    timeElapsed: 0, 
+    timeElapsed: 0, // In seconds, for shop and speed increase
     lastShopTime: 0,
     lastSpeedIncrease: 0,
     isInvincible: false,
     isMeteorActive: false,
     isSlowActive: false,
-    slowdownFactor: 1,
+    slowdownFactor: 1, // 1 is normal speed. >1 is slow.
 };
 
 // --- DOM Elements ---
@@ -31,23 +31,28 @@ const dom = {
     skillsList: document.getElementById('skills-list'),
     music: document.getElementById('game-music'),
     meteorFlash: document.getElementById('meteor-flash'),
+
+    // Buttons for Listener Check
+    startGameBtn: document.getElementById('start-game-btn'),
+    restartGameBtn: document.getElementById('restart-game-btn'),
+    resumeGameBtn: document.getElementById('resume-game-btn'),
 };
 
 // --- Player/Jump Constants ---
-const playerSize = 0.08 * window.innerHeight;
-const groundHeight = 0.20 * window.innerHeight;
-const jumpVelocity = 25;
+const playerSize = 0.08 * window.innerHeight; // 8vh
+const groundHeight = 0.20 * window.innerHeight; // 20vh
+const jumpVelocity = 25; // Initial upward velocity
 const gravity = 1.5;
-let playerY = 0;
-let playerVy = 0;
+let playerY = 0; // Current Y offset from ground (in px)
+let playerVy = 0; // Vertical velocity (in px/frame)
 
 // --- Game Loop and Object Management ---
 let gameLoopInterval;
 let spawnTimer = 0; 
-let spawnRate = 90;
+let spawnRate = 90; // Frames between object spawns (lower is faster)
 let lastFrameTime = performance.now();
 
-// --- Upgrade/Skill Data ---
+// --- Upgrade/Skill Data (Levels, Costs, Effects) ---
 const UPGRADES = {
     riskReward: { level: 0, costBase: 100, costMult: 2, effect: { obstacleRate: 0.05, moneyRate: 0.1 } },
     cooldownReduction: { level: 0, costBase: 150, costMult: 3, effect: { reduction: 0.05, maxCap: 0.75 } },
@@ -102,18 +107,18 @@ function initGame() {
 }
 
 function setupEventListeners() {
-    // Tap to Jump (Mobile)
+    // CRITICAL LISTENER CHECK: Using the DOM element directly
+    if (dom.startGameBtn) dom.startGameBtn.addEventListener('click', startGame);
+    if (dom.restartGameBtn) dom.restartGameBtn.addEventListener('click', startGame);
+    if (dom.resumeGameBtn) dom.resumeGameBtn.addEventListener('click', resumeGame);
+    
+    // Jump Listeners
     dom.gameScreen.addEventListener('click', handleJump);
-    // Spacebar to Jump (PC)
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !e.repeat) {
             handleJump();
         }
     });
-
-    document.getElementById('start-game-btn').addEventListener('click', startGame);
-    document.getElementById('restart-game-btn').addEventListener('click', startGame);
-    document.getElementById('resume-game-btn').addEventListener('click', resumeGame);
 
     // Skill Buttons
     document.getElementById('skill-slow').addEventListener('click', () => activateSkill('slow'));
@@ -149,17 +154,18 @@ function resetGame() {
     updateSkillButtons();
 }
 
+// --- CRITICAL FUNCTION: startGame ---
 function startGame() {
     resetGame();
     gameState.isGameRunning = true;
     
-    // CRITICAL FIX: Hide screens and start the game view
-    dom.titleScreen.classList.remove('active');
-    dom.gameOverScreen.classList.remove('active');
+    // CRITICAL: Ensure all overlay screens are removed and game screen is implicitly active
+    if (dom.titleScreen) dom.titleScreen.classList.remove('active');
+    if (dom.gameOverScreen) dom.gameOverScreen.classList.remove('active');
+    if (dom.shopScreen) dom.shopScreen.classList.remove('active'); 
     
-    updatePlayerPosition(); 
-    
-    dom.music.play().catch(e => console.log("Music auto-play prevented:", e));
+    // Play music and start the loop
+    dom.music.play().catch(e => console.warn("Music auto-play prevented:", e));
     lastFrameTime = performance.now();
     gameLoopInterval = requestAnimationFrame(gameLoop);
 }
@@ -255,7 +261,6 @@ function createCactus() {
     const cactus = document.createElement('div');
     cactus.className = 'game-object obstacle cactus';
     cactus.dataset.type = 'obstacle';
-    // Image linked via CSS: assets/cactus.png
     return cactus;
 }
 
@@ -266,7 +271,6 @@ function createBird() {
     
     const birdY = groundHeight + playerSize * (1.5 + Math.random() * 0.5); 
     bird.style.bottom = birdY + 'px';
-    // Image linked via CSS: assets/bird.png
     return bird;
 }
 
@@ -276,10 +280,9 @@ function createCoin() {
     coin.dataset.value = '1';
     
     let coinY = Math.random() < 0.5 
-        ? groundHeight 
+        ? groundHeight
         : groundHeight + playerSize * (0.5 + Math.random() * 1.5);
     coin.style.bottom = coinY + 'px';
-    // Image linked via CSS: assets/coin.png
     return coin;
 }
 
@@ -290,7 +293,6 @@ function createDiamond() {
     
     const diamondY = groundHeight + playerSize * (1 + Math.random() * 2);
     diamond.style.bottom = diamondY + 'px';
-    // Image linked via CSS: assets/diamond.png
     return diamond;
 }
 
@@ -319,6 +321,7 @@ function checkCollision() {
     if (gameState.isInvincible) return;
 
     const playerRect = dom.player.getBoundingClientRect();
+    // Using a slightly smaller hitbox for fairness, as defined in previous code
     const playerHitBox = {
         left: playerRect.left + playerRect.width * 0.1,
         right: playerRect.right - playerRect.width * 0.1,
@@ -352,10 +355,11 @@ function checkCollision() {
     }
 }
 
-// --- Game Flow Control and Shop/Skill Logic (Unchanged) ---
+// --- Game Flow Control ---
 
 function updateGameStats(deltaTime) {
     gameState.timeElapsed += deltaTime;
+    // Score increases based on speed
     gameState.score += Math.ceil(gameState.gameSpeed * gameState.speedMultiplier / 10); 
 }
 
@@ -392,11 +396,13 @@ function resumeGame() {
     gameState.isPaused = false;
     gameState.lastShopTime = gameState.timeElapsed;
     dom.shopScreen.classList.remove('active');
-    dom.music.play().catch(e => console.log("Music resume failed:", e));
+    dom.music.play().catch(e => console.warn("Music resume failed:", e));
     
     lastFrameTime = performance.now();
     gameLoopInterval = requestAnimationFrame(gameLoop);
 }
+
+// --- UI Updates and Shop Logic ---
 
 function updateUI() {
     dom.scoreDisplay.textContent = `Score: ${gameState.score}`;
@@ -409,6 +415,7 @@ function updateShopUI() {
     dom.upgradesList.innerHTML = '<h2>Upgrades (Stats)</h2>';
     dom.skillsList.innerHTML = '<h2>Skills (Active)</h2>';
 
+    // 1. Render Upgrades
     for (const key in UPGRADES) {
         const upgrade = UPGRADES[key];
         const nextLevel = upgrade.level + 1;
@@ -431,6 +438,7 @@ function updateShopUI() {
         dom.upgradesList.appendChild(itemDiv);
     }
 
+    // 2. Render Skills
     for (const key in SKILLS) {
         const skill = SKILLS[key];
         const nextLevel = skill.level + 1;
@@ -597,21 +605,31 @@ function updateSkillCooldowns(deltaTime) {
     }
 }
 
+// --- CRITICAL FIX: updateSkillCooldownUI ---
 function updateSkillCooldownUI() {
     for (const key in SKILLS) {
         const skill = SKILLS[key];
         const button = document.getElementById(`skill-${key}`);
+        
+        // CRITICAL CHECK: Ensure the button element exists
+        if (!button) continue; 
+        
         const overlay = button.querySelector('.cooldown-overlay');
 
-        if (skill.unlocked) {
-            const effectiveCD = getEffectiveCooldown(skill);
-            const percentage = (skill.currentCooldown / effectiveCD) * 100;
-            overlay.style.transform = `translateY(${percentage.toFixed(0)}%)`;
-        } else {
-            overlay.style.transform = `translateY(100%)`;
+        // CRITICAL CHECK: Ensure the overlay element exists before accessing its style
+        if (overlay) { 
+            if (skill.unlocked) {
+                const effectiveCD = getEffectiveCooldown(skill);
+                const percentage = (skill.currentCooldown / effectiveCD) * 100;
+                overlay.style.transform = `translateY(${percentage.toFixed(0)}%)`;
+            } else {
+                overlay.style.transform = `translateY(100%)`;
+            }
         }
     }
 }
+// --- END CRITICAL FIX ---
+
 
 function activateSlow(skill) {
     if (gameState.isSlowActive) return;
@@ -632,7 +650,7 @@ function activateShield(skill) {
     const duration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
 
     gameState.isInvincible = true;
-    dom.player.style.outline = '3px solid gold';
+    dom.player.style.outline = '3px solid gold'; // Visual shield indicator
 
     setTimeout(() => {
         gameState.isInvincible = false;
