@@ -2,12 +2,13 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
+  <!-- mobile-first, prevent zooming/scrolling -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Bảo Long</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Main canvas -->
+  <!-- Game Canvas -->
   <canvas id="gameCanvas" tabindex="0"></canvas>
 
   <!-- HUD / UI -->
@@ -40,9 +41,9 @@
   <div id="overlay" class="visible">
     <div class="menu card">
       <h1>Bảo Long</h1>
-      <p>Tap (or Space) to jump. Survive. Spend money in shop every 2 minutes.</p>
+      <p>Tap (or Space) to jump. Survive. Shop opens every 2 minutes.</p>
       <button id="startBtn">Start Game</button>
-      <div class="small">Music will start after you press Start (browsers block autoplay)</div>
+      <div class="small">Music starts after Start (browser autoplay rules).</div>
     </div>
   </div>
 
@@ -69,7 +70,7 @@
 
         <div class="shopItem">
           <h3>Luck</h3>
-          <p>+1% diamond spawn chance per level (cap 25%)</p>
+          <p>+1% diamond chance per level (cap 25%)</p>
           <div>Cost: $<span id="cost-luck">50</span></div>
           <div>Level: <span id="lvl-luck">0</span></div>
           <button class="buyBtn" data-upgrade="luck">Buy</button>
@@ -118,8 +119,7 @@
 
   <audio id="bgMusic" loop>
     <source src="assets/music.mp3" type="audio/mpeg">
-    <!-- If you want to test without your mp3, uncomment next line to use a placeholder silent audio file (not provided) -->
-    <!-- <source src="data:audio/wav;base64,//uQZAAAAAAAAAAAA..." type="audio/wav"> -->
+    <!-- If you want to test without mp3, you can swap or fallback here -->
   </audio>
 
   <script src="script.js"></script>
