@@ -1,535 +1,714 @@
-/* Bảo Long - script.js
-   Uses assets/*.png and assets/music.mp3 in the assets folder.
-*/
-
-/* ----------------- Basic setup ----------------- */
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-let W = window.innerWidth, H = window.innerHeight;
-function resize() {
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W; canvas.height = H;
-}
-resize();
-window.addEventListener('resize', resize);
-
-/* ---------- Game state ---------- */
-const groundY = () => Math.round(H * 0.78);
-let baseSpeed = 300;
-let gameSpeed = 1.0;
-let elapsed = 0;
-let lastTime = null;
-let running = false;
-let paused = false;
-let gameOver = false;
-let frameReq = null;
-
-let money = 0;
-let totalGold = 0;
-
-let baseObstacleInterval = 1.4;
-let baseMoneyInterval = 2.0;
-
-const upgrades = {
-  risk: { lvl: 0, baseCost: 100 },
-  cooldown: { lvl: 0, baseCost: 150 },
-  luck: { lvl: 0, baseCost: 50 }
+// --- Game State Variables ---
+const gameState = {
+    isGameRunning: false,
+    isPaused: false,
+    isGameOver: false,
+    score: 0,
+    money: 0,
+    gameSpeed: 6, // Initial pixels per frame
+    speedMultiplier: 1,
+    timeElapsed: 0, // In seconds, for shop and speed increase
+    lastShopTime: 0,
+    lastSpeedIncrease: 0,
+    isInvincible: false,
+    isMeteorActive: false,
+    isSlowActive: false,
+    slowdownFactor: 1, // 1 is normal speed. 1.1 is 10% slow.
 };
 
-const skills = {
-  timeSlow: { lvl: 1, unlocked: true, baseCost: 100, cooldownBase: 60, cooldown: 0, activeUntil: 0, slowPerLevel: 0.10 },
-  shield: { lvl: 0, unlocked: false, unlockCost: 150, levelCost: 150, cooldownBase: 60, cooldown: 0, activeUntil: 0, durationBase: 1.0 },
-  meteor: { lvl: 0, unlocked: false, unlockCost: 500, levelCost: 150, cooldownBase: 120, cooldown: 0, activeUntil: 0, durationBase: 5.0 }
+// --- DOM Elements ---
+const dom = {
+    gameScreen: document.getElementById('game-screen'),
+    player: document.getElementById('player'),
+    gameObjects: document.getElementById('game-objects'),
+    scoreDisplay: document.getElementById('score-display'),
+    moneyDisplay: document.getElementById('money-display'),
+    titleScreen: document.getElementById('title-screen'),
+    gameOverScreen: document.getElementById('game-over-screen'),
+    shopScreen: document.getElementById('shop-screen'),
+    shopMoney: document.getElementById('shop-money'),
+    upgradesList: document.getElementById('upgrades-list'),
+    skillsList: document.getElementById('skills-list'),
+    music: document.getElementById('game-music'),
+    meteorFlash: document.getElementById('meteor-flash'),
 };
 
-const GOLD_VALUE = 1;
-const DIAMOND_VALUE = 10;
+// --- Player/Jump Constants ---
+const playerSize = 0.08 * window.innerHeight; // 8vh
+const groundHeight = 0.20 * window.innerHeight; // 20vh
+const jumpVelocity = 25; // Initial upward velocity
+const gravity = 1.5;
+let playerY = 0; // Current Y offset from ground (in px)
+let playerVy = 0; // Vertical velocity (in px/frame)
 
-let obstacleTimer = 0, moneyTimer = 0;
-let nextObstacleInterval = baseObstacleInterval, nextMoneyInterval = baseMoneyInterval;
+// --- Game Loop and Object Management ---
+let gameLoopInterval;
+let spawnTimer = 0; // Counter for spawning objects
+let spawnRate = 90; // Frames between object spawns (lower is faster)
+let lastFrameTime = performance.now();
 
-let obstacles = [], pickups = [];
-
-/* player */
-const player = {
-  x: Math.round(W * 0.12),
-  w: Math.round(Math.min(W, H) * 0.12),
-  h: Math.round(Math.min(W, H) * 0.12),
-  y: 0,
-  vy: 0,
-  gravity: 1500,
-  jumpForce: -650,
-  onGround: true
+// --- Upgrade/Skill Data (Levels, Costs, Effects) ---
+const UPGRADES = {
+    riskReward: { level: 0, costBase: 100, costMult: 2, effect: { obstacleRate: 0.05, moneyRate: 0.1 } },
+    cooldownReduction: { level: 0, costBase: 150, costMult: 3, effect: { reduction: 0.05, maxCap: 0.75 } },
+    luck: { level: 0, costBase: 50, costMult: 1.5, effect: { diamondChance: 0.01, maxCap: 0.25 } }
 };
 
-/* images */
-const images = {};
-const imageFiles = {
-  dino: 'assets/dino.png',
-  cactus: 'assets/cactus.png',
-  bird: 'assets/bird.png',
-  meteor: 'assets/meteor.png'
-};
-let loadedImages = 0;
-const totalImagesToLoad = Object.keys(imageFiles).length;
-for (const k in imageFiles) {
-  images[k] = new Image();
-  images[k].src = imageFiles[k];
-  images[k].onload = () => { loadedImages++; };
-  images[k].onerror = () => { loadedImages++; console.warn('Image failed:', imageFiles[k]); };
-}
-
-/* If you want placeholders instead of real images, uncomment next lines:
-images.dino = null; images.cactus = null; images.bird = null; images.meteor = null; loadedImages = totalImagesToLoad;
-*/
-
-/* music */
-const bgMusic = document.getElementById('bgMusic');
-bgMusic.volume = 0.45;
-
-/* DOM elements */
-const overlay = document.getElementById('overlay');
-const shopModal = document.getElementById('shopModal');
-const gameOverModal = document.getElementById('gameOver');
-
-const startBtn = document.getElementById('startBtn');
-const resumeBtn = document.getElementById('resumeBtn');
-const restartBtn = document.getElementById('restartBtn');
-
-const moneyDisplay = document.getElementById('money');
-const timeDisplay = document.getElementById('time');
-const speedDisplay = document.getElementById('speed');
-
-const lvlRisk = document.getElementById('lvl-risk');
-const lvlCD = document.getElementById('lvl-cd');
-const lvlLuck = document.getElementById('lvl-luck');
-
-const costRisk = document.getElementById('cost-risk');
-const costCD = document.getElementById('cost-cd');
-const costLuck = document.getElementById('cost-luck');
-
-const lvlTimeSlowSpan = document.getElementById('lvl-timeslow');
-const lvlShieldSpan = document.getElementById('lvl-shield');
-const lvlMeteorSpan = document.getElementById('lvl-meteor');
-
-const cdTimeSlow = document.getElementById('cd-timeSlow');
-const cdShield = document.getElementById('cd-shield');
-const cdMeteor = document.getElementById('cd-meteor');
-
-const skillButtons = {
-  timeSlow: document.getElementById('skillTimeSlow'),
-  shield: document.getElementById('skillShield'),
-  meteor: document.getElementById('skillMeteor')
-};
-
-const finalTimeSpan = document.getElementById('finalTime');
-const finalMoneySpan = document.getElementById('finalMoney');
-
-/* ---- utility functions for modifiers ---- */
-function getCooldownReduction() {
-  const percent = Math.min(75, upgrades.cooldown.lvl * 5);
-  return percent / 100;
-}
-function getAdjustedCooldown(base) { return base * (1 - getCooldownReduction()); }
-function getAdjustedObstacleInterval() {
-  const inc = upgrades.risk.lvl * 0.05;
-  return Math.max(0.35, baseObstacleInterval / (1 + inc));
-}
-function getAdjustedMoneyInterval() {
-  const inc = upgrades.risk.lvl * 0.10;
-  return Math.max(0.3, baseMoneyInterval / (1 + inc));
-}
-function getDiamondChance() {
-  const extra = Math.min(0.25 - 0.10, upgrades.luck.lvl * 0.01);
-  return 0.10 + extra;
-}
-
-/* ---------- Input ---------- */
-function handleJump() {
-  if (!running || paused || gameOver) return;
-  if (player.onGround) { player.vy = player.jumpForce; player.onGround = false; }
-}
-
-/* pointer-friendly input for canvas */
-canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); handleJump(); });
-window.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); handleJump(); } });
-
-/* ---------- Skill & button handlers (use pointerdown for mobile reliability) ---------- */
-function safePointer(el, fn) {
-  if (!el) return;
-  el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); fn(ev); });
-}
-safePointer(skillButtons.timeSlow, () => useSkill('timeSlow'));
-safePointer(skillButtons.shield, () => useSkill('shield'));
-safePointer(skillButtons.meteor, () => useSkill('meteor'));
-
-/* shop buy buttons: pointerdown */
-document.querySelectorAll('.buyBtn').forEach(btn => {
-  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); handleBuy(e.currentTarget.dataset.upgrade); });
-});
-
-/* start/resume/restart (pointerdown to avoid touch events being swallowed) */
-safePointer(startBtn, () => {
-  overlay.classList.remove('visible'); overlay.classList.add('hidden');
-  startGame();
-  try { bgMusic.play().catch(()=>{}); } catch(e){}
-});
-safePointer(resumeBtn, () => {
-  closeShop();
-});
-safePointer(restartBtn, () => {
-  // NEW: proper in-game restart (no page reload)
-  gameOverModal.classList.add('hidden');
-  gameOverModal.classList.remove('visible');
-
-  // ensure shop closed
-  shopModal.classList.remove('visible'); shopModal.classList.add('hidden');
-
-  // reset shop timer trigger so shop won't immediately reopen
-  shopTriggeredAt = null;
-
-  // restart music (user interacted by tapping restart)
-  try { bgMusic.currentTime = 0; bgMusic.play().catch(()=>{}); } catch(e){}
-
-  // start fresh without reloading the page
-  startGame();
-});
-
-/* ---------- Shop / Buy logic ---------- */
-function handleBuy(key) {
-  if (key === 'risk') {
-    const cost = upgrades.risk.baseCost * Math.pow(2, upgrades.risk.lvl);
-    if (money >= cost) { money -= cost; upgrades.risk.lvl++; updateUI(); nextObstacleInterval = getAdjustedObstacleInterval(); nextMoneyInterval = getAdjustedMoneyInterval(); }
-    else alert('Not enough money');
-  } else if (key === 'cooldown') {
-    const cost = upgrades.cooldown.baseCost * Math.pow(3, upgrades.cooldown.lvl);
-    if (money >= cost) { money -= cost; upgrades.cooldown.lvl++; updateUI(); }
-    else alert('Not enough money');
-  } else if (key === 'luck') {
-    const cost = Math.round(upgrades.luck.baseCost * Math.pow(1.5, upgrades.luck.lvl));
-    if (money >= cost) { money -= cost; upgrades.luck.lvl++; updateUI(); }
-    else alert('Not enough money');
-  } else if (key === 'timeslowSkill') {
-    const cost = skills.timeSlow.baseCost * skills.timeSlow.lvl;
-    if (money >= cost) { money -= cost; skills.timeSlow.lvl++; updateUI(); }
-    else alert('Not enough money');
-  } else if (key === 'shieldSkill') {
-    if (!skills.shield.unlocked) {
-      if (money >= skills.shield.unlockCost) { money -= skills.shield.unlockCost; skills.shield.unlocked = true; skills.shield.lvl = 1; updateUI(); }
-      else alert('Not enough money to unlock Shield');
-    } else {
-      const cost = skills.shield.levelCost * skills.shield.lvl;
-      if (money >= cost) { money -= cost; skills.shield.lvl++; updateUI(); } else alert('Not enough money');
+const SKILLS = {
+    slow: { 
+        id: 'slow', 
+        name: 'Time Slow', 
+        level: 1, // Starts at 1
+        unlocked: true,
+        costBase: 100, 
+        costIncrement: 100, 
+        cooldown: 60, // seconds
+        currentCooldown: 0,
+        effect: { slow: 0.10, duration: 5 } // 5 seconds duration
+    },
+    shield: { 
+        id: 'shield', 
+        name: 'Shield', 
+        level: 0, 
+        unlocked: false, 
+        unlockCost: 150,
+        costBase: 150, 
+        costIncrement: 150, 
+        cooldown: 60, // seconds
+        currentCooldown: 0,
+        effect: { baseDuration: 1, durationIncrement: 0.5 } 
+    },
+    meteor: { 
+        id: 'meteor', 
+        name: 'Meteor Call', 
+        level: 0, 
+        unlocked: false, 
+        unlockCost: 500,
+        costBase: 150, 
+        costIncrement: 150, 
+        cooldown: 120, // seconds
+        currentCooldown: 0,
+        effect: { baseDuration: 5, durationIncrement: 1 } 
     }
-  } else if (key === 'meteorSkill') {
-    if (!skills.meteor.unlocked) {
-      if (money >= skills.meteor.unlockCost) { money -= skills.meteor.unlockCost; skills.meteor.unlocked = true; skills.meteor.lvl = 1; updateUI(); }
-      else alert('Not enough money to unlock Meteor Call');
-    } else {
-      const cost = skills.meteor.levelCost * skills.meteor.lvl;
-      if (money >= cost) { money -= cost; skills.meteor.lvl++; updateUI(); } else alert('Not enough money');
+};
+
+// --- Initialization ---
+
+function initGame() {
+    setupEventListeners();
+    dom.player.style.width = playerSize + 'px';
+    dom.player.style.height = playerSize + 'px';
+    resetGame();
+}
+
+function setupEventListeners() {
+    // Tap to Jump (Mobile)
+    dom.gameScreen.addEventListener('click', handleJump);
+    // Spacebar to Jump (PC)
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !e.repeat) {
+            handleJump();
+        }
+    });
+
+    document.getElementById('start-game-btn').addEventListener('click', startGame);
+    document.getElementById('restart-game-btn').addEventListener('click', startGame);
+    document.getElementById('resume-game-btn').addEventListener('click', resumeGame);
+
+    // Skill Buttons
+    document.getElementById('skill-slow').addEventListener('click', () => activateSkill('slow'));
+    document.getElementById('skill-shield').addEventListener('click', () => activateSkill('shield'));
+    document.getElementById('skill-meteor').addEventListener('click', () => activateSkill('meteor'));
+}
+
+function resetGame() {
+    gameState.score = 0;
+    gameState.money = 0;
+    gameState.gameSpeed = 6;
+    gameState.speedMultiplier = 1;
+    gameState.timeElapsed = 0;
+    gameState.lastShopTime = 0;
+    gameState.lastSpeedIncrease = 0;
+    gameState.isGameOver = false;
+    gameState.isInvincible = false;
+    gameState.isMeteorActive = false;
+    gameState.isSlowActive = false;
+    gameState.slowdownFactor = 1;
+    spawnRate = 90;
+    playerY = 0;
+    playerVy = 0;
+    
+    // Clear all game objects
+    dom.gameObjects.innerHTML = '';
+    
+    // Reset skill cooldowns
+    for(const skillId in SKILLS) {
+        SKILLS[skillId].currentCooldown = 0;
     }
-  }
-}
 
-/* ---------- Skill usage ---------- */
-function useSkill(name) {
-  if (!running || paused || gameOver) return;
-  const now = elapsed;
-  if (!skills[name].unlocked) { alert('Skill locked. Unlock in shop.'); return; }
-  if (skills[name].cooldown > now) return;
-  if (name === 'timeSlow') {
-    const dur = 3 + skills.timeSlow.lvl * 0.5;
-    skills.timeSlow.activeUntil = now + dur;
-    skills.timeSlow.cooldown = now + getAdjustedCooldown(skills.timeSlow.cooldownBase);
-  } else if (name === 'shield') {
-    const dur = skills.shield.durationBase + 0.5 * (skills.shield.lvl - 1);
-    skills.shield.activeUntil = now + dur;
-    skills.shield.cooldown = now + getAdjustedCooldown(skills.shield.cooldownBase);
-  } else if (name === 'meteor') {
-    const dur = skills.meteor.durationBase + 1 * (skills.meteor.lvl - 1);
-    skills.meteor.activeUntil = now + dur;
-    skills.meteor.cooldown = now + getAdjustedCooldown(skills.meteor.cooldownBase);
-    spawnMeteor();
-  }
-  updateUI();
+    updateUI();
+    updatePlayerPosition();
+    updateSkillButtons();
 }
-
-/* ---------- Spawning ---------- */
-function spawnObstacle() {
-  if (skills.meteor.activeUntil > elapsed) return; // meteor blocks obstacles
-  const isBird = Math.random() < 0.45;
-  if (isBird) {
-    const birdH = Math.min(W, H) * 0.09;
-    const y = Math.max(50, groundY() - player.h - (Math.random() * (player.h * 2) + player.h * 0.5));
-    obstacles.push({ type:'bird', x: W + 40, y, w: birdH, h: birdH });
-  } else {
-    const cW = Math.min(W, H) * 0.12;
-    const y = groundY() - cW * 0.9;
-    obstacles.push({ type:'cactus', x: W + 40, y, w: cW * 0.9, h: cW });
-  }
-}
-
-function spawnPickup() {
-  const isDiamond = Math.random() < getDiamondChance();
-  const spawnOnGround = Math.random() < 0.5;
-  const size = Math.min(W, H) * (isDiamond ? 0.06 : 0.05);
-  const y = spawnOnGround ? groundY() - size - 6 : groundY() - player.h - Math.random() * (player.h * 1.2) - size;
-  pickups.push({ type: isDiamond ? 'diamond' : 'gold', x: W + 40, y, w: size, h: size });
-}
-
-/* meteor visual */
-function spawnMeteor() {
-  const m = { type:'meteorVis', x: W + 60, y: -100, w: Math.min(W,H) * 0.18, h: Math.min(W,H) * 0.18, vx: -1000, vy: 1200, life: 1.8 };
-  obstacles.push(m);
-}
-
-/* ---------- Game loop ---------- */
-let lastSpeedIncrease = 0;
-let shopTriggeredAt = null;
 
 function startGame() {
-  resetState();
-  running = true; paused = false; gameOver = false;
-  lastTime = null;
-  frameReq = requestAnimationFrame(loop);
+    resetGame();
+    gameState.isGameRunning = true;
+    dom.titleScreen.classList.remove('active');
+    dom.gameOverScreen.classList.remove('active');
+    dom.music.play().catch(e => console.log("Music auto-play prevented:", e));
+    lastFrameTime = performance.now();
+    gameLoopInterval = requestAnimationFrame(gameLoop);
 }
 
-function resetState() {
-  elapsed = 0; lastSpeedIncrease = 0; gameSpeed = 1.0; money = 0; totalGold = 0;
-  obstacles = []; pickups = [];
-  player.y = groundY() - player.h; player.vy = 0; player.onGround = true;
-  obstacleTimer = 0; moneyTimer = 0;
-  nextObstacleInterval = getAdjustedObstacleInterval(); nextMoneyInterval = getAdjustedMoneyInterval();
-  upgrades.risk.lvl = upgrades.risk.lvl || 0;
+// --- Game Loop ---
 
-  // IMPORTANT: clear shop trigger so shop won't pop immediately after restart
-  shopTriggeredAt = null;
-}
-
-function loop(ts) {
-  if (!lastTime) lastTime = ts;
-  const dt = (ts - lastTime) / 1000;
-  lastTime = ts;
-  if (!paused && running && !gameOver) { update(dt); render(); }
-  frameReq = requestAnimationFrame(loop);
-}
-
-function update(dt) {
-  elapsed += dt;
-
-  if (Math.floor(elapsed / 60) > lastSpeedIncrease) {
-    lastSpeedIncrease = Math.floor(elapsed / 60);
-    gameSpeed *= 1.07;
-  }
-
-  // Shop every 120s
-  if (Math.floor(elapsed) > 0 && Math.floor(elapsed) % 120 === 0 && Math.floor(elapsed) !== 0) {
-    if (!shopTriggeredAt || shopTriggeredAt !== Math.floor(elapsed)) {
-      shopTriggeredAt = Math.floor(elapsed);
-      openShop();
+function gameLoop(timestamp) {
+    if (gameState.isPaused || gameState.isGameOver) {
+        cancelAnimationFrame(gameLoopInterval);
+        return;
     }
-  }
 
-  const now = elapsed;
-  const slowMultiplier = (skills.timeSlow.activeUntil > now) ? (1 - (skills.timeSlow.slowPerLevel * skills.timeSlow.lvl)) : 1;
-  const effectiveSpeed = baseSpeed * gameSpeed * slowMultiplier;
+    const deltaTime = (timestamp - lastFrameTime) / 1000; // Delta time in seconds
+    lastFrameTime = timestamp;
 
-  // player physics
-  player.vy += player.gravity * dt;
-  player.y += player.vy * dt;
-  if (player.y + player.h >= groundY()) { player.y = groundY() - player.h; player.vy = 0; player.onGround = true; }
+    const effectiveSpeed = gameState.gameSpeed * gameState.speedMultiplier / gameState.slowdownFactor;
 
-  // spawn logic
-  obstacleTimer += dt; moneyTimer += dt;
-  if (obstacleTimer >= nextObstacleInterval) { spawnObstacle(); obstacleTimer = 0; nextObstacleInterval = getAdjustedObstacleInterval() * (0.85 + Math.random() * 0.5); }
-  if (moneyTimer >= nextMoneyInterval) { spawnPickup(); moneyTimer = 0; nextMoneyInterval = getAdjustedMoneyInterval() * (0.7 + Math.random()); }
+    updatePlayer(deltaTime);
+    moveObjects(effectiveSpeed);
+    spawnObjects(deltaTime, effectiveSpeed);
+    checkCollision();
+    updateGameStats(deltaTime);
+    updateSkillCooldowns(deltaTime);
 
-  // move obstacles/pickups
-  for (let i = obstacles.length -1; i >= 0; i--) {
-    const o = obstacles[i];
-    if (o.type === 'meteorVis') {
-      o.x += o.vx * dt; o.y += o.vy * dt; o.life -= dt;
-      if (o.life <= 0 || o.x + o.w < -200 || o.y > H + 200) obstacles.splice(i,1);
-      continue;
+    // Check for shop pause (every 2 minutes = 120 seconds)
+    if (gameState.timeElapsed - gameState.lastShopTime >= 120) {
+        pauseGameForShop();
     }
-    o.x -= effectiveSpeed * dt * ((o.type === 'bird') ? 0.9 : 1.0);
-    if (o.x + o.w < -100) obstacles.splice(i,1);
-  }
-  for (let i = pickups.length -1; i >= 0; i--) {
-    const p = pickups[i];
-    p.x -= effectiveSpeed * dt * 0.9;
-    if (p.x + p.w < -100) pickups.splice(i,1);
-  }
-
-  // collisions
-  const playerRect = { x: player.x, y: player.y, w: player.w, h: player.h };
-  let shieldActive = skills.shield.activeUntil > now;
-  for (let i = obstacles.length -1; i >=0; i--) {
-    const o = obstacles[i];
-    if (o.type === 'meteorVis') continue;
-    if (rectIntersects(playerRect, {x:o.x,y:o.y,w:o.w,h:o.h})) {
-      if (shieldActive) { obstacles.splice(i,1); continue; }
-      endGame(); return;
+    
+    // Check for speed increase (every 1 minute = 60 seconds)
+    if (gameState.timeElapsed - gameState.lastSpeedIncrease >= 60) {
+        increaseGameSpeed();
     }
-  }
-  for (let i = pickups.length -1; i >=0; i--) {
-    const p = pickups[i];
-    if (rectIntersects(playerRect, {x:p.x,y:p.y,w:p.w,h:p.h})) {
-      money += (p.type === 'gold' ? GOLD_VALUE : DIAMOND_VALUE);
-      totalGold += (p.type === 'gold' ? 1 : 10);
-      pickups.splice(i,1);
-      updateUI();
+
+    updateUI();
+    gameLoopInterval = requestAnimationFrame(gameLoop);
+}
+
+// --- Player Logic ---
+
+function handleJump() {
+    if (!gameState.isGameRunning || gameState.isPaused || gameState.isGameOver || playerY > 0) {
+        return;
     }
-  }
-
-  updateSkillCooldowns();
-  updateHUD();
+    // Only jump if on the ground (playerY == 0)
+    playerVy = jumpVelocity;
 }
 
-function render() {
-  ctx.clearRect(0,0,W,H);
-  // ground
-  ctx.fillStyle = "rgba(34,34,34,0.07)";
-  const gY = groundY();
-  ctx.fillRect(0, gY, W, H - gY);
-
-  drawPlayer();
-  pickups.forEach(drawPickup);
-  obstacles.forEach(drawObstacle);
-
-  // shield visual
-  if (skills.shield.activeUntil > elapsed) {
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = '#00f';
-    ctx.beginPath();
-    ctx.arc(player.x + player.w/2, player.y + player.h/2, player.w, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // time slow overlay
-  if (skills.timeSlow.activeUntil > elapsed) {
-    ctx.fillStyle = 'rgba(10,10,30,0.06)';
-    ctx.fillRect(0,0,W,H);
-  }
+function updatePlayer(deltaTime) {
+    if (playerY > 0 || playerVy > 0) {
+        playerVy -= gravity; // Apply gravity
+        playerY += playerVy;
+        
+        // Land on ground
+        if (playerY <= 0) {
+            playerY = 0;
+            playerVy = 0;
+        }
+        updatePlayerPosition();
+    }
 }
 
-/* draw utilities */
-function drawPlayer() {
-  if (images.dino && images.dino.complete && images.dino.naturalWidth !== 0) {
-    ctx.drawImage(images.dino, player.x, player.y, player.w, player.h);
-  } else {
-    ctx.fillStyle = '#f5c542';
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-    ctx.fillStyle = '#000';
-    ctx.fillText('DINO', player.x + 8, player.y + 18);
-  }
-}
-function drawObstacle(o) {
-  if (o.type === 'meteorVis') {
-    if (images.meteor && images.meteor.complete && images.meteor.naturalWidth !== 0) ctx.drawImage(images.meteor, o.x, o.y, o.w, o.h);
-    else { ctx.fillStyle = '#ff8a00'; ctx.fillRect(o.x,o.y,o.w,o.h); }
-    return;
-  }
-  if (o.type === 'cactus') {
-    if (images.cactus && images.cactus.complete && images.cactus.naturalWidth !== 0) ctx.drawImage(images.cactus, o.x, o.y, o.w, o.h);
-    else { ctx.fillStyle = '#2ecc71'; ctx.fillRect(o.x,o.y,o.w,o.h); }
-  } else if (o.type === 'bird') {
-    if (images.bird && images.bird.complete && images.bird.naturalWidth !== 0) ctx.drawImage(images.bird, o.x, o.y, o.w, o.h);
-    else { ctx.fillStyle = '#a29bfe'; ctx.fillRect(o.x,o.y,o.w,o.h); }
-  }
-}
-function drawPickup(p) {
-  if (p.type === 'gold') {
-    ctx.fillStyle = '#ffd166';
-    ctx.beginPath();
-    ctx.ellipse(p.x + p.w/2, p.y + p.h/2, p.w/2, p.h/2, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.fillText('$', p.x + p.w/2 - 4, p.y + p.h/2 + 4);
-  } else {
-    ctx.save();
-    ctx.translate(p.x + p.w/2, p.y + p.h/2);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = '#7fdbff';
-    ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
-    ctx.restore();
-  }
+function updatePlayerPosition() {
+    // CSS transform for vertical movement
+    dom.player.style.transform = `translateY(-${playerY}px)`;
 }
 
-/* ---------- Helpers & UI ---------- */
-function rectIntersects(a,b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+// --- Object Spawning & Movement ---
+
+function spawnObjects(deltaTime, effectiveSpeed) {
+    // Spawn Timer: deltaTime is in seconds, convert to frames approximation
+    const frameApproximation = deltaTime * 60; 
+    spawnTimer += frameApproximation;
+
+    // Calculate dynamic spawn rate based on speed and Risk&Reward
+    const rrBonus = UPGRADES.riskReward.level * UPGRADES.riskReward.effect.obstacleRate;
+    const dynamicSpawnRate = spawnRate / (1 + rrBonus); 
+
+    // Stop spawning if Meteor is active
+    if (gameState.isMeteorActive) return;
+
+    if (spawnTimer >= dynamicSpawnRate) {
+        spawnTimer = 0;
+
+        // Choose between obstacle or currency
+        const isObstacle = Math.random() < 0.7; 
+        
+        let newObject;
+        if (isObstacle) {
+            newObject = Math.random() < 0.5 ? createCactus() : createBird();
+        } else {
+            // Determine currency type
+            const luckBonus = UPGRADES.luck.level * UPGRADES.luck.effect.diamondChance;
+            const diamondChance = Math.min(0.1 + luckBonus, 0.25); // Max 25%
+            newObject = Math.random() < diamondChance ? createDiamond() : createCoin();
+        }
+
+        dom.gameObjects.appendChild(newObject);
+    }
 }
 
-function endGame() {
-  gameOver = true; running = false;
-  cancelAnimationFrame(frameReq);
-  finalTimeSpan.textContent = Math.floor(elapsed);
-  finalMoneySpan.textContent = money;
-  gameOverModal.classList.remove('hidden'); gameOverModal.classList.add('visible');
+function createCactus() {
+    const cactus = document.createElement('div');
+    cactus.className = 'game-object obstacle cactus';
+    cactus.dataset.type = 'obstacle';
+    
+    // Placeholder for cactus.png
+    cactus.innerHTML = '<div class="asset-placeholder" style="background-color: #38761D;"></div>'; 
+    // Uncomment below:
+    // cactus.style.backgroundImage = 'url("assets/cactus.png")'; 
+    
+    return cactus;
 }
 
-function updateHUD() {
-  moneyDisplay.textContent = `$${money}`;
-  timeDisplay.textContent = `Time: ${Math.floor(elapsed)}s`;
-  speedDisplay.textContent = `Speed: ${gameSpeed.toFixed(2)}x`;
-
-  lvlRisk.textContent = upgrades.risk.lvl;
-  lvlCD.textContent = upgrades.cooldown.lvl;
-  lvlLuck.textContent = upgrades.luck.lvl;
-
-  costRisk.textContent = Math.round(upgrades.risk.baseCost * Math.pow(2, upgrades.risk.lvl));
-  costCD.textContent = Math.round(upgrades.cooldown.baseCost * Math.pow(3, upgrades.cooldown.lvl));
-  costLuck.textContent = Math.round(upgrades.luck.baseCost * Math.pow(1.5, upgrades.luck.lvl));
-
-  lvlTimeSlowSpan.textContent = skills.timeSlow.lvl;
-  lvlShieldSpan.textContent = skills.shield.lvl;
-  lvlMeteorSpan.textContent = skills.meteor.lvl;
+function createBird() {
+    const bird = document.createElement('div');
+    bird.className = 'game-object obstacle bird';
+    bird.dataset.type = 'obstacle';
+    
+    // Y position: high enough to be jumped over (1.5-2x player height)
+    const birdY = groundHeight + playerSize * (1.5 + Math.random() * 0.5); 
+    bird.style.bottom = birdY + 'px';
+    
+    // Placeholder for bird.png
+    bird.innerHTML = '<div class="asset-placeholder" style="background-color: #F7B801;"></div>'; 
+    // Uncomment below:
+    // bird.style.backgroundImage = 'url("assets/bird.png")'; 
+    
+    return bird;
 }
 
-function updateSkillCooldowns() {
-  const now = elapsed;
-  if (!skills.timeSlow.unlocked) { cdTimeSlow.textContent = 'Locked'; skillButtons.timeSlow.classList.add('locked'); }
-  else {
-    skillButtons.timeSlow.classList.remove('locked');
-    const rem = Math.max(0, skills.timeSlow.cooldown - now);
-    cdTimeSlow.textContent = rem > 0 ? `CD: ${Math.ceil(rem)}s` : (skills.timeSlow.activeUntil > now ? `Active` : 'Ready');
-  }
-  if (!skills.shield.unlocked) { cdShield.textContent = 'Locked'; skillButtons.shield.classList.add('locked'); }
-  else {
-    skillButtons.shield.classList.remove('locked');
-    const rem = Math.max(0, skills.shield.cooldown - now);
-    cdShield.textContent = rem > 0 ? `CD: ${Math.ceil(rem)}s` : (skills.shield.activeUntil > now ? `Active` : 'Ready');
-  }
-  if (!skills.meteor.unlocked) { cdMeteor.textContent = 'Locked'; skillButtons.meteor.classList.add('locked'); }
-  else {
-    skillButtons.meteor.classList.remove('locked');
-    const rem = Math.max(0, skills.meteor.cooldown - now);
-    cdMeteor.textContent = rem > 0 ? `CD: ${Math.ceil(rem)}s` : (skills.meteor.activeUntil > now ? `Active` : 'Ready');
-  }
+function createCoin() {
+    const coin = document.createElement('div');
+    coin.className = 'game-object currency coin';
+    coin.dataset.value = '1';
+    
+    // Y position: ground or air
+    let coinY;
+    if (Math.random() < 0.5) {
+        coinY = groundHeight; // Ground level
+    } else {
+        coinY = groundHeight + playerSize * (0.5 + Math.random() * 1.5); // Jumpable air
+    }
+    coin.style.bottom = coinY + 'px';
+    
+    // Placeholder for gold coin
+    coin.innerHTML = '<div class="asset-placeholder" style="background-color: #FFD700;"></div>'; 
+    return coin;
 }
+
+function createDiamond() {
+    const diamond = document.createElement('div');
+    diamond.className = 'game-object currency diamond';
+    diamond.dataset.value = '10';
+    
+    // Y position: usually in the air
+    const diamondY = groundHeight + playerSize * (1 + Math.random() * 2);
+    diamond.style.bottom = diamondY + 'px';
+
+    // Placeholder for diamond
+    diamond.innerHTML = '<div class="asset-placeholder" style="background-color: #00FFFF;"></div>'; 
+    return diamond;
+}
+
+
+function moveObjects(effectiveSpeed) {
+    const objects = dom.gameObjects.children;
+    const gameScreenW = dom.gameScreen.offsetWidth;
+
+    for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
+        
+        // Get current X position (browser handles it, we only set it on creation)
+        let currentX = parseFloat(obj.style.right) || 0;
+        
+        // Move object to the left
+        currentX += effectiveSpeed;
+        obj.style.right = currentX + 'px';
+
+        // Remove object if it's off-screen
+        if (currentX > gameScreenW) {
+            obj.remove();
+        }
+    }
+}
+
+// --- Collision Detection ---
+
+function checkCollision() {
+    if (gameState.isInvincible) return; // Skip collision if invincible
+
+    const playerRect = dom.player.getBoundingClientRect();
+    const playerHitBox = {
+        left: playerRect.left + playerRect.width * 0.1, // Minor adjustment
+        right: playerRect.right - playerRect.width * 0.1,
+        top: playerRect.top + playerRect.height * 0.1,
+        bottom: playerRect.bottom - playerRect.height * 0.1,
+    };
+
+    const objects = dom.gameObjects.children;
+
+    for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
+        const objRect = obj.getBoundingClientRect();
+
+        // Simple AABB Collision Check
+        const isColliding = (
+            playerHitBox.left < objRect.right &&
+            playerHitBox.right > objRect.left &&
+            playerHitBox.top < objRect.bottom &&
+            playerHitBox.bottom > objRect.top
+        );
+
+        if (isColliding) {
+            if (obj.dataset.type === 'obstacle') {
+                gameOver();
+                return;
+            } else if (obj.dataset.value) {
+                // Currency collected
+                gameState.money += parseInt(obj.dataset.value);
+                // Increase score slightly for collecting
+                gameState.score += 5; 
+                obj.remove();
+            }
+        }
+    }
+}
+
+// --- Game Flow Control ---
+
+function updateGameStats(deltaTime) {
+    gameState.timeElapsed += deltaTime;
+    // Score increases with speed
+    gameState.score += Math.ceil(gameState.gameSpeed * gameState.speedMultiplier / 10); 
+}
+
+function increaseGameSpeed() {
+    gameState.speedMultiplier += 0.1; // 10% speed increase
+    gameState.lastSpeedIncrease = gameState.timeElapsed;
+    console.log(`Speed increased! Multiplier: ${gameState.speedMultiplier.toFixed(2)}`);
+}
+
+function gameOver() {
+    gameState.isGameRunning = false;
+    gameState.isGameOver = true;
+    dom.music.pause();
+    dom.music.currentTime = 0; // Reset music
+    cancelAnimationFrame(gameLoopInterval);
+
+    document.getElementById('final-score').textContent = gameState.score;
+    document.getElementById('final-money').textContent = gameState.money;
+    dom.gameOverScreen.classList.add('active');
+}
+
+function pauseGameForShop() {
+    if (!gameState.isGameRunning || gameState.isPaused || gameState.isGameOver) return;
+    
+    gameState.isPaused = true;
+    cancelAnimationFrame(gameLoopInterval);
+    dom.music.pause();
+    
+    // Update shop UI before display
+    updateShopUI();
+    dom.shopScreen.classList.add('active');
+}
+
+function resumeGame() {
+    gameState.isPaused = false;
+    gameState.lastShopTime = gameState.timeElapsed; // Reset shop timer
+    dom.shopScreen.classList.remove('active');
+    dom.music.play().catch(e => console.log("Music resume failed:", e));
+    
+    lastFrameTime = performance.now(); // Recalibrate delta time
+    gameLoopInterval = requestAnimationFrame(gameLoop);
+}
+
+// --- UI Updates ---
+
 function updateUI() {
-  updateHUD();
-  updateSkillCooldowns();
-  if (skills.shield.unlocked) skillButtons.shield.classList.remove('locked'); else skillButtons.shield.classList.add('locked');
-  if (skills.meteor.unlocked) skillButtons.meteor.classList.remove('locked'); else skillButtons.meteor.classList.add('locked');
+    dom.scoreDisplay.textContent = `Score: ${gameState.score}`;
+    dom.moneyDisplay.textContent = `💰 $${gameState.money}`;
+    updateSkillCooldownUI();
 }
 
-/* Shop open/close */
-function openShop() {
-  paused = true;
-  shopModal.classList.remove('hidden'); shopModal.classList.add('visible');
-}
-function closeShop() {
-  paused = false;
-  shopModal.classList.remove('visible'); shopModal.classList.add('hidden');
-  obstacleTimer = 0; moneyTimer = 0;
-  nextObstacleInterval = getAdjustedObstacleInterval(); nextMoneyInterval = getAdjustedMoneyInterval();
+function updateShopUI() {
+    dom.shopMoney.textContent = gameState.money;
+    dom.upgradesList.innerHTML = '<h2>Upgrades (Stats)</h2>';
+    dom.skillsList.innerHTML = '<h2>Skills (Active)</h2>';
+
+    // 1. Render Upgrades
+    for (const key in UPGRADES) {
+        const upgrade = UPGRADES[key];
+        const nextLevel = upgrade.level + 1;
+        const currentCost = upgrade.costBase * Math.pow(upgrade.costMult, upgrade.level);
+        const canAfford = gameState.money >= currentCost;
+        const effectDesc = getUpgradeEffectDescription(key, upgrade);
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'shop-item';
+        itemDiv.innerHTML = `
+            <div class="item-info">
+                <strong>${formatUpgradeName(key)} (Lvl ${upgrade.level}) → (Lvl ${nextLevel})</strong>
+                <p>${effectDesc}</p>
+            </div>
+            <button data-type="upgrade" data-id="${key}" ${!canAfford ? 'disabled' : ''}>
+                Buy ($${Math.round(currentCost)})
+            </button>
+        `;
+        itemDiv.querySelector('button').addEventListener('click', () => buyUpgrade(key, currentCost));
+        dom.upgradesList.appendChild(itemDiv);
+    }
+
+    // 2. Render Skills
+    for (const key in SKILLS) {
+        const skill = SKILLS[key];
+        const nextLevel = skill.level + 1;
+        
+        let buttonText, currentCost, canAfford, buttonAction, isLocked = false;
+        
+        if (!skill.unlocked) {
+            currentCost = skill.unlockCost;
+            canAfford = gameState.money >= currentCost;
+            buttonText = `Unlock ($${skill.unlockCost})`;
+            buttonAction = () => unlockSkill(key);
+            isLocked = true;
+        } else {
+            currentCost = skill.costBase + skill.level * skill.costIncrement;
+            canAfford = gameState.money >= currentCost;
+            buttonText = `Upgrade ($${Math.round(currentCost)})`;
+            buttonAction = () => upgradeSkill(key, currentCost);
+        }
+
+        const effectDesc = getSkillEffectDescription(key, skill);
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'shop-item';
+        itemDiv.innerHTML = `
+            <div class="item-info">
+                <strong>${skill.name} (Lvl ${skill.level}) ${isLocked ? '(LOCKED)' : `→ (Lvl ${nextLevel})`}</strong>
+                <p>Cooldown: ${skill.cooldown}s. ${effectDesc}</p>
+            </div>
+            <button data-type="skill" data-id="${key}" ${!canAfford ? 'disabled' : ''}>
+                ${buttonText}
+            </button>
+        `;
+        itemDiv.querySelector('button').addEventListener('click', buttonAction);
+        dom.skillsList.appendChild(itemDiv);
+    }
 }
 
-/* initial UI update */
-updateUI();
+function formatUpgradeName(key) {
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+}
+
+function getUpgradeEffectDescription(key, upgrade) {
+    switch(key) {
+        case 'riskReward':
+            const obs = (0.05 + upgrade.level * 0.05) * 100;
+            const mon = (0.10 + upgrade.level * 0.10) * 100;
+            return `Current: Obstacle +${obs.toFixed(0)}%, Money +${mon.toFixed(0)}%`;
+        case 'cooldownReduction':
+            const max = upgrade.effect.maxCap * 100;
+            const current = upgrade.level * upgrade.effect.reduction;
+            return `Current: ${Math.min(current * 100, max).toFixed(0)}% CD Reduction (Max ${max}%)`;
+        case 'luck':
+            const currentChance = (0.1 + upgrade.level * upgrade.effect.diamondChance) * 100;
+            const luckMax = upgrade.effect.maxCap * 100;
+            return `Current Diamond Chance: ${Math.min(currentChance, luckMax).toFixed(1)}% (Base 10%)`;
+        default: return '';
+    }
+}
+
+function getSkillEffectDescription(key, skill) {
+    switch(key) {
+        case 'slow':
+            const slow = (0.1 + (skill.level - 1) * 0.1) * 100;
+            return `Effect: Slows game by ${slow.toFixed(0)}% for 5s.`;
+        case 'shield':
+            const duration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
+            return `Effect: Invincible for ${duration.toFixed(1)}s.`;
+        case 'meteor':
+            const meteorDuration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
+            return `Effect: Stop spawns for ${meteorDuration.toFixed(0)}s.`;
+        default: return '';
+    }
+}
+
+// --- Shop Logic ---
+
+function buyUpgrade(key, cost) {
+    if (gameState.money >= cost) {
+        gameState.money -= cost;
+        UPGRADES[key].level++;
+        updateShopUI(); // Re-render shop
+        updateUI();     // Update money display
+    }
+}
+
+function unlockSkill(key) {
+    const skill = SKILLS[key];
+    if (gameState.money >= skill.unlockCost) {
+        gameState.money -= skill.unlockCost;
+        skill.unlocked = true;
+        skill.level = 1; // Unlocking starts it at level 1
+        updateShopUI();
+        updateUI();
+        updateSkillButtons();
+    }
+}
+
+function upgradeSkill(key, cost) {
+    const skill = SKILLS[key];
+    if (gameState.money >= cost) {
+        gameState.money -= cost;
+        skill.level++;
+        updateShopUI();
+        updateUI();
+        updateSkillButtons();
+    }
+}
+
+// --- Active Skill Logic ---
+
+function updateSkillButtons() {
+    for (const key in SKILLS) {
+        const skill = SKILLS[key];
+        const button = document.getElementById(`skill-${key}`);
+        
+        button.dataset.unlocked = skill.unlocked;
+        button.disabled = !skill.unlocked || skill.currentCooldown > 0 || gameState.isPaused;
+        
+        if (skill.unlocked) {
+            button.textContent = `${skill.name} (Lvl ${skill.level})`;
+        } else {
+            button.textContent = `${skill.name} (Lvl 0) - Lock`;
+        }
+    }
+}
+
+function getEffectiveCooldown(skill) {
+    const reductionEffect = UPGRADES.cooldownReduction.level * UPGRADES.cooldownReduction.effect.reduction;
+    const maxReduction = UPGRADES.cooldownReduction.effect.maxCap;
+    const totalReduction = Math.min(reductionEffect, maxReduction);
+    return skill.cooldown * (1 - totalReduction);
+}
+
+function activateSkill(skillId) {
+    const skill = SKILLS[skillId];
+    if (!skill.unlocked || skill.currentCooldown > 0 || !gameState.isGameRunning || gameState.isPaused) return;
+
+    // Put skill on cooldown
+    skill.currentCooldown = getEffectiveCooldown(skill);
+    updateSkillButtons();
+
+    switch(skillId) {
+        case 'slow':
+            activateSlow(skill);
+            break;
+        case 'shield':
+            activateShield(skill);
+            break;
+        case 'meteor':
+            activateMeteor(skill);
+            break;
+    }
+}
+
+function updateSkillCooldowns(deltaTime) {
+    let allReady = true;
+    for (const key in SKILLS) {
+        const skill = SKILLS[key];
+        if (skill.currentCooldown > 0) {
+            skill.currentCooldown -= deltaTime;
+            if (skill.currentCooldown < 0) {
+                skill.currentCooldown = 0;
+            }
+            allReady = false;
+        }
+    }
+    if (!allReady) {
+        updateSkillButtons();
+    }
+}
+
+function updateSkillCooldownUI() {
+    for (const key in SKILLS) {
+        const skill = SKILLS[key];
+        const button = document.getElementById(`skill-${key}`);
+        const overlay = button.querySelector('.cooldown-overlay');
+
+        if (skill.unlocked) {
+            const effectiveCD = getEffectiveCooldown(skill);
+            const percentage = (skill.currentCooldown / effectiveCD) * 100;
+            overlay.style.transform = `translateY(${percentage.toFixed(0)}%)`;
+        } else {
+            overlay.style.transform = `translateY(100%)`;
+        }
+    }
+}
+
+// --- Specific Skill Implementations ---
+
+function activateSlow(skill) {
+    if (gameState.isSlowActive) return; // Prevent stacking
+    
+    gameState.isSlowActive = true;
+    const slowEffect = 0.10 + (skill.level - 1) * 0.10;
+    gameState.slowdownFactor = 1 / (1 - slowEffect); // e.g., 10% slow -> 1 / 0.9 = ~1.11 slowdown factor
+    
+    setTimeout(() => {
+        gameState.isSlowActive = false;
+        gameState.slowdownFactor = 1;
+    }, skill.effect.duration * 1000); // Duration is constant 5s for slow
+}
+
+function activateShield(skill) {
+    if (gameState.isInvincible) return; // Prevent stacking
+
+    const duration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
+
+    gameState.isInvincible = true;
+    dom.player.style.outline = '3px solid gold'; // Visual feedback for shield
+
+    setTimeout(() => {
+        gameState.isInvincible = false;
+        dom.player.style.outline = 'none';
+    }, duration * 1000);
+}
+
+function activateMeteor(skill) {
+    if (gameState.isMeteorActive) return; // Prevent stacking
+
+    const duration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
+    
+    gameState.isMeteorActive = true;
+    
+    // Meteor Visual: Placeholder for meteor.png (only if you uncomment it later)
+    // Note: The object will not move, just flash the screen and pause obstacle spawning.
+    // Use the flash element for effect.
+    dom.meteorFlash.classList.add('flash-active');
+    
+    // Deactivate after 500ms
+    setTimeout(() => {
+        dom.meteorFlash.classList.remove('flash-active');
+    }, 500);
+
+
+    setTimeout(() => {
+        gameState.isMeteorActive = false;
+    }, duration * 1000);
+}
+
+
+// Start the game initialization once the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', initGame);

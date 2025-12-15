@@ -1,144 +1,332 @@
-/* Mobile-first, landscape-preferred game CSS */
-/* Prevent selection and unwanted gestures */
-html,body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  background: #86c7f3;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  overflow: hidden;
+/* Base Styles and Mobile Focus */
+:root {
+    --player-size: 8vh;
+    --ground-height: 20vh;
+    --game-speed: 1s; /* Initial placeholder */
 }
 
-/* Canvas covers whole viewport */
-#gameCanvas {
-  display: block;
-  width: 100vw;
-  height: 100vh;
-  background: url('assets/bg.png') center/cover no-repeat; /* your bg */
-  /* If bg.png missing, comment above and uncomment next line: */
-  /* background: linear-gradient(#7ec8ff, #3fa9f5); */
-  touch-action: none;
-  position: relative;
-  z-index: 0; /* behind UI */
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent scrolling on mobile */
+    touch-action: manipulation; /* Prevent default touch actions like zooming/scrolling */
+    background-color: #2c3e50;
+    font-family: Arial, sans-serif;
+    color: white;
 }
 
-/* UI overlays */
-#ui {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 5;
+#game-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
 }
 
-#topBar {
-  pointer-events: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  font-weight: 600;
+/* Screens (Title, Game Over, Shop) */
+.screen {
+    position: absolute;
+    width: 80%;
+    max-width: 500px;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 3px solid gold;
+    border-radius: 10px;
+    text-align: center;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
 }
 
-#topBar > div { background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 10px; pointer-events: none; }
-
-#skillBar {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 12px;
-  display: flex;
-  gap: 8px;
-  pointer-events: auto;
-  z-index: 6;
+.screen.active {
+    display: block;
 }
 
-.skill {
-  min-width: 86px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: none;
-  font-weight: 700;
-  background: linear-gradient(180deg,#fff,#ddd);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  touch-action: manipulation;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  -webkit-user-select: none;
-  user-select: none;
+.screen h1 {
+    color: gold;
+    margin-top: 0;
 }
 
-.skill.locked {
-  filter: grayscale(70%);
-  opacity: 0.7;
+.screen button, .shop-item button {
+    padding: 10px 20px;
+    margin: 10px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.2s;
 }
 
-.cooldown { font-size: 11px; font-weight: 600; color: #333; }
-
-/* Overlays (title, shop, game over) */
-/* FIX: modal sits above everything and receives touches */
-#overlay, #shopModal, #gameOver {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  pointer-events: auto;
-  z-index: 9999; /* important */
-  touch-action: none;
+.screen button:hover, .shop-item button:hover {
+    background-color: #2980b9;
 }
 
-.hidden { display: none; }
-.visible { display: flex; }
-
-.card {
-  width: min(920px, 95vw);
-  max-width: 920px;
-  padding: 16px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.96);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-  text-align: center;
-  pointer-events: auto; /* let the buttons receive input */
-  z-index: 10000;
+/* Game Screen */
+#game-screen {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #7ED9CC; /* Base sky color */
+    overflow: hidden;
+    user-select: none; /* Prevent text selection on mobile */
 }
 
-.menu button {
-  margin-top: 12px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: none;
-  font-weight: 700;
-  background: linear-gradient(180deg,#27ae60,#1e8449);
-  color: #fff;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+/* Background Placeholder (bg.png) */
+#background {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: var(--ground-height);
+    background-color: #4CAF50; /* Ground placeholder color */
+    z-index: 1;
 }
 
-.small { font-size: 12px; opacity: 0.8; margin-top: 6px; }
+#background .asset-placeholder {
+    /* Background Placeholder Size */
+    width: 100%;
+    height: 100%;
+}
 
-/* Shop layout */
-.shopRow { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-.shopItem { flex: 1 1 240px; background: #f6f6f6; padding: 10px; border-radius: 10px; text-align: left; }
-.buyBtn { margin-top: 8px; padding: 8px 10px; touch-action: manipulation; }
+/* Player (Dino) */
+#player {
+    position: absolute;
+    bottom: var(--ground-height);
+    left: 5%;
+    width: var(--player-size);
+    height: var(--player-size);
+    z-index: 10;
+    transition: transform 0.1s ease-out; /* For smooth jump initiation */
+}
 
-/* Game over / shop buttons */
-.shopActions { margin-top: 12px; display:flex; gap:10px; justify-content:center; }
+/* Asset Placeholder Style */
+.asset-placeholder {
+    width: 100%;
+    height: 100%;
+    /* border: 2px solid black; */
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.6rem;
+    color: black;
+}
+/* Comment out below and use real images */
+/*
+#player > .asset-placeholder { background-image: url('assets/dino.png'); background-size: contain; background-repeat: no-repeat; }
+#background > .asset-placeholder { background-image: url('assets/bg.png'); background-size: cover; background-repeat: repeat-x; }
+*/
 
-/* Ensure tappable sizes */
-.menu button, .buyBtn, .skill { min-height: 44px; }
+/* Player Jump Animation Class */
+.jump {
+    /* Transform is controlled by JS to accurately track position */
+}
 
-/* portrait tweaks */
-@media (orientation:portrait) {
-  .card { width: 95vw; }
-  #skillBar { bottom: 8px; gap: 6px; }
-  .skill { min-width: 70px; padding: 8px; font-size: 13px; }
+/* Game Objects (Obstacles/Currency) */
+.game-object {
+    position: absolute;
+    bottom: var(--ground-height);
+    transform: translateX(100vw);
+    width: 5vh;
+    height: 5vh;
+    z-index: 5;
+    will-change: transform; /* Performance optimization for movement */
+}
+
+.cactus {
+    height: 8vh;
+    width: 5vh;
+    bottom: var(--ground-height);
+}
+
+.bird {
+    height: 6vh;
+    width: 8vh;
+    /* Y position set by JS */
+}
+
+.coin, .diamond {
+    height: 4vh;
+    width: 4vh;
+    border-radius: 50%;
+}
+
+/* Placeholder Colors */
+.cactus .asset-placeholder { background-color: #38761D; } /* Cactus Green */
+.bird .asset-placeholder { background-color: #F7B801; } /* Bird Yellow */
+.coin .asset-placeholder { background-color: #FFD700; } /* Gold Coin */
+.diamond .asset-placeholder { background-color: #00FFFF; } /* Diamond Cyan */
+
+/* UI Elements */
+#stats-ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+    z-index: 50;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 5px;
+}
+
+/* Skills UI */
+#skill-ui {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    display: flex;
+    gap: 5px;
+    z-index: 50;
+}
+
+.skill-button {
+    position: relative;
+    width: 10vh;
+    height: 6vh;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: white;
+    background-color: #2980b9;
+    border: 2px solid #204060;
+    border-radius: 5px;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 0;
+    transition: background-color 0.2s;
+}
+
+.skill-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.skill-button[data-unlocked="false"] {
+    background-color: #c0392b; /* Locked color */
+}
+
+.cooldown-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    transform: translateY(100%); /* Start hidden/full cooldown */
+    transition: transform linear;
+    pointer-events: none; /* Allow click on button underneath */
+}
+
+/* Meteor Effect Flash */
+#meteor-flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 90;
+    display: none;
+    opacity: 0;
+}
+
+.flash-active {
+    display: block !important;
+    animation: flash 0.1s ease-out forwards;
+}
+
+@keyframes flash {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+
+/* Shop Specific Styles */
+#shop-screen h1 { margin-bottom: 5px; }
+.shop-note { color: #f39c12; margin-bottom: 15px; }
+
+#upgrades-list, #skills-list {
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #7f8c8d;
+    border-radius: 5px;
+}
+
+#upgrades-list h2, #skills-list h2 {
+    color: #3498db;
+    margin-top: 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #3498db;
+    padding-bottom: 5px;
+}
+
+.shop-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #7f8c8d;
+}
+
+.shop-item:last-child {
+    border-bottom: none;
+}
+
+.item-info {
+    text-align: left;
+    flex-grow: 1;
+}
+
+.item-info strong {
+    font-size: 1.1rem;
+    color: #2ecc71;
+}
+
+.item-info p {
+    margin: 2px 0;
+    font-size: 0.9rem;
+    color: #bdc3c7;
+}
+
+.shop-item button {
+    margin-left: 15px;
+    padding: 8px 15px;
+    font-size: 1rem;
+    min-width: 100px;
+}
+
+.shop-item button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* Ensure mobile landscape orientation fit */
+@media (orientation: portrait) {
+    /* Optional: Provide a hint for landscape */
+    /*
+    #game-container::before {
+        content: "Please rotate your device to landscape for the best experience.";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.5rem;
+        text-align: center;
+        z-index: 200;
+    }
+    */
 }

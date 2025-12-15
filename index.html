@@ -1,127 +1,82 @@
-<!doctype html>
-<html lang="vi">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <!-- mobile-first, prevent zooming/scrolling -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Bảo Long</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bảo Long - Mobile Runner</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Game Canvas -->
-  <canvas id="gameCanvas" tabindex="0"></canvas>
 
-  <!-- HUD / UI -->
-  <div id="ui">
-    <div id="topBar">
-      <div id="time">Time: 0s</div>
-      <div id="money">$0</div>
-      <div id="speed">Speed: 1.0x</div>
+    <div id="game-container">
+        <div id="game-screen">
+
+            <div id="background">
+                <div class="asset-placeholder" style="background-color: #A0C4FF;"></div>
+            </div>
+
+            <div id="stats-ui">
+                <span id="score-display">Score: 0</span>
+                <span id="money-display">💰 $0</span>
+            </div>
+
+            <div id="player">
+                <div class="asset-placeholder" style="background-color: #6A994E;"></div>
+            </div>
+
+            <div id="game-objects"></div>
+
+            <div id="meteor-flash"></div>
+
+            <div id="skill-ui">
+                <button id="skill-slow" class="skill-button" data-skill-id="slow" disabled>
+                    Time Slow (Lvl 1)
+                    <div class="cooldown-overlay"></div>
+                </button>
+
+                <button id="skill-shield" class="skill-button" data-skill-id="shield" disabled>
+                    Shield (Lvl 0) - Lock
+                    <div class="cooldown-overlay"></div>
+                </button>
+
+                <button id="skill-meteor" class="skill-button" data-skill-id="meteor" disabled>
+                    Meteor Call (Lvl 0) - Lock
+                    <div class="cooldown-overlay"></div>
+                </button>
+            </div>
+        </div>
+
+        <div id="title-screen" class="screen active">
+            <h1>Bảo Long Runner</h1>
+            <p>Tap to Jump, Survive, and Upgrade!</p>
+            <button id="start-game-btn">Start Game</button>
+        </div>
+
+        <div id="game-over-screen" class="screen">
+            <h1>Game Over!</h1>
+            <p>Final Score: <span id="final-score">0</span></p>
+            <p>Total Money: <span id="final-money">0</span></p>
+            <button id="restart-game-btn">Restart Game</button>
+        </div>
+
+        <div id="shop-screen" class="screen">
+            <h1>The Shop (2-Minute Pause)</h1>
+            <p>Your Money: <span id="shop-money">0</span></p>
+            <p class="shop-note">Spend wisely before resuming the run!</p>
+
+            <div id="upgrades-list">
+                </div>
+            
+            <div id="skills-list">
+                </div>
+
+            <button id="resume-game-btn">Resume Game</button>
+        </div>
     </div>
 
-    <div id="skillBar">
-      <button class="skill" id="skillTimeSlow" data-skill="timeSlow">
-        Time Slow
-        <div class="cooldown" id="cd-timeSlow">Ready</div>
-      </button>
+    <audio id="game-music" loop>
+        </audio>
 
-      <button class="skill locked" id="skillShield" data-skill="shield">
-        Shield
-        <div class="cooldown" id="cd-shield">Locked</div>
-      </button>
-
-      <button class="skill locked" id="skillMeteor" data-skill="meteor">
-        Meteor Call
-        <div class="cooldown" id="cd-meteor">Locked</div>
-      </button>
-    </div>
-  </div>
-
-  <!-- Title Screen -->
-  <div id="overlay" class="visible">
-    <div class="menu card">
-      <h1>Bảo Long</h1>
-      <p>Tap (or Space) to jump. Survive. Shop opens every 2 minutes.</p>
-      <button id="startBtn">Start Game</button>
-      <div class="small">Music starts after Start (browser autoplay rules).</div>
-    </div>
-  </div>
-
-  <!-- Shop modal (pauses game every 2 minutes) -->
-  <div id="shopModal" class="hidden">
-    <div class="menu card">
-      <h2>Shop — Upgrades</h2>
-      <div class="shopRow">
-        <div class="shopItem">
-          <h3>Risk & Reward</h3>
-          <p>+5% obstacle spawn rate & +10% money spawn rate per level</p>
-          <div>Cost: $<span id="cost-risk">100</span></div>
-          <div>Level: <span id="lvl-risk">0</span></div>
-          <button class="buyBtn" data-upgrade="risk">Buy</button>
-        </div>
-
-        <div class="shopItem">
-          <h3>Cooldown Reduction</h3>
-          <p>-5% skill cooldowns per level (cap 75%)</p>
-          <div>Cost: $<span id="cost-cd">150</span></div>
-          <div>Level: <span id="lvl-cd">0</span></div>
-          <button class="buyBtn" data-upgrade="cooldown">Buy</button>
-        </div>
-
-        <div class="shopItem">
-          <h3>Luck</h3>
-          <p>+1% diamond chance per level (cap 25%)</p>
-          <div>Cost: $<span id="cost-luck">50</span></div>
-          <div>Level: <span id="lvl-luck">0</span></div>
-          <button class="buyBtn" data-upgrade="luck">Buy</button>
-        </div>
-      </div>
-
-      <h2>Skills (unlock / level)</h2>
-      <div class="shopRow">
-        <div class="shopItem">
-          <h3>Time Slow</h3>
-          <div>Cost per level: $100 (starter unlocked)</div>
-          <div>Level: <span id="lvl-timeslow">1</span></div>
-          <button class="buyBtn" data-upgrade="timeslowSkill">Buy Level</button>
-        </div>
-
-        <div class="shopItem">
-          <h3>Shield</h3>
-          <div>Unlock: $150, Increment per level: $150</div>
-          <div>Level: <span id="lvl-shield">0</span></div>
-          <button class="buyBtn" data-upgrade="shieldSkill">Unlock/Level</button>
-        </div>
-
-        <div class="shopItem">
-          <h3>Meteor Call</h3>
-          <div>Unlock: $500, Increment per level: $150</div>
-          <div>Level: <span id="lvl-meteor">0</span></div>
-          <button class="buyBtn" data-upgrade="meteorSkill">Unlock/Level</button>
-        </div>
-      </div>
-
-      <div class="shopActions">
-        <button id="resumeBtn">Resume</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Game Over -->
-  <div id="gameOver" class="hidden">
-    <div class="menu card">
-      <h2>Game Over</h2>
-      <div>Time survived: <span id="finalTime">0</span>s</div>
-      <div>Money collected: $<span id="finalMoney">0</span></div>
-      <button id="restartBtn">Restart</button>
-    </div>
-  </div>
-
-  <audio id="bgMusic" loop>
-    <source src="assets/music.mp3" type="audio/mpeg">
-    <!-- If you want to test without mp3, you can swap or fallback here -->
-  </audio>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
