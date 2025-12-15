@@ -1,117 +1,59 @@
-/* RESET + MOBILE GAME BASE */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  touch-action: manipulation;
+  user-select: none;
+}
+
 html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    touch-action: none;
-    user-select: none;
-    background: #000;
-    font-family: sans-serif;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: Arial, sans-serif;
 }
 
-/* MAIN CONTAINER */
-#game-container {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
+canvas {
+  display: block;
 }
 
-/* BACKGROUND */
-#background {
-    position: absolute;
-    inset: 0;
-    background-image: url("assets/bg.png");
-    background-size: cover;
-    background-position: bottom;
-    z-index: 0;
-    pointer-events: none;
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
 
-/* HUD */
+.hidden { display: none; }
+
+button {
+  padding: 12px 20px;
+  margin: 6px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+  background: #28a745;
+  color: white;
+}
+
 #hud {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 50;
-    color: white;
-    font-size: 1.2em;
-    pointer-events: none;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 5;
+  color: white;
 }
 
-/* GAME AREA */
-#game-area {
-    position: absolute;
-    bottom: 10%;
-    left: 5%;
-    width: 90%;
-    height: 60%;
-    border-bottom: 4px solid green;
-    z-index: 10;
-    overflow: visible;
-}
-
-/* DINO */
-#dino {
-    position: absolute;
-    bottom: 0;
-    left: 10%;
-    width: 50px;
-    height: 50px;
-    background-image: url("assets/dino.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-
-/* OBSTACLES */
-.obstacle {
-    position: absolute;
-    bottom: 0;
-    background-size: contain;
-    background-repeat: no-repeat;
-}
-
-.cactus {
-    width: 30px;
-    height: 40px;
-    background-image: url("assets/cactus.png");
-}
-
-.bird {
-    width: 40px;
-    height: 30px;
-    bottom: 40%;
-    background-image: url("assets/bird.png");
-}
-
-/* SKILL BUTTONS */
-#skill-buttons-container {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    display: flex;
-    gap: 10px;
-    z-index: 40;
-}
-
-.skill-button {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    border: 2px solid #aaa;
-    background: #444;
-    color: white;
-    font-size: 0.7em;
-}
-
-/* METEOR */
-.meteor {
-    position: absolute;
-    width: 60px;
-    height: 60px;
-    background-image: url("assets/meteor.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-    z-index: 30;
+#skillButtons button {
+  font-size: 12px;
+  padding: 8px;
 }

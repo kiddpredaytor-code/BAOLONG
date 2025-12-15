@@ -1,31 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Mobile Runner</title>
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Bảo Long</title>
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<div id="game-container">
+<div id="startScreen" class="overlay">
+  <h1>Bảo Long</h1>
+  <button id="startBtn">Start Game</button>
+</div>
 
-    <div id="background"></div>
+<div id="shopScreen" class="overlay hidden">
+  <h2>Shop</h2>
+  <div id="moneyDisplay">$0</div>
+  <h3>Upgrades</h3>
+  <div id="upgrades"></div>
+  <h3>Skills</h3>
+  <div id="skillsShop"></div>
+  <button id="resumeBtn">Resume</button>
+</div>
 
-    <div id="hud">
-        <span id="score">Score: 0</span>
-    </div>
+<canvas id="gameCanvas"></canvas>
 
-    <div id="game-area">
-        <div id="dino"></div>
-    </div>
+<div id="hud">
+  <div id="hudMoney">$0</div>
+  <div id="skillButtons">
+    <button id="skillTime">Time</button>
+    <button id="skillShield">Shield</button>
+    <button id="skillMeteor">Meteor</button>
+  </div>
+</div>
 
-    <div id="skill-buttons-container">
-        <button class="skill-button" id="meteor-btn">METEOR</button>
-    </div>
-
-    <audio id="game-music" src="assets/music.mp3" loop></audio>
-
+<div id="gameOverScreen" class="overlay hidden">
+  <h2>Game Over</h2>
+  <button id="restartBtn">Restart</button>
 </div>
 
 <script src="script.js"></script>
