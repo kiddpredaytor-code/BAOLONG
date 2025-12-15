@@ -1,86 +1,189 @@
-/* GLOBAL RESETS and MOBILE-FIRST SETUP */
+/* GLOBAL RESETS AND MOBILE FIXES */
 html, body {
-    margin: 0;
-    padding: 0;
     height: 100%;
-    width: 100%;
-    overflow: hidden; 
-    user-select: none;
-    touch-action: manipulation;
-    background-color: #333;
+    margin: 0;
+    overflow: hidden;
+    /* FIX 1: Disable default mobile touch gestures */
+    touch-action: none; 
     font-family: sans-serif;
-    color: white;
 }
 
 #game-container {
     position: relative;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #222;
+    background-color: #f7f7f7;
+    transition: filter 0.5s;
 }
 
-/* BACKGROUND (NOW USING bg.png) */
+#game-container.slowed {
+    filter: grayscale(100%) brightness(70%);
+}
+
+/* BACKGROUND (INPUT FIX) */
 #background-placeholder {
     position: absolute;
     width: 100%;
     height: 100%;
-    /* Uncomment the line below to use your image: */
-    background-image: url('assets/bg.png'); 
-    background-color: #87CEEB; /* Fallback/Placeholder color */
-    background-size: cover;
-    background-position: bottom;
     z-index: 0;
+    background: linear-gradient(to bottom, #87ceeb, #e0f6ff); /* Light blue sky */
+    /* FIX 2: Ensure background does not steal touch events */
+    pointer-events: none; 
 }
 
-/* GAME AREA AND GROUND LINE */
+/* GAME AREA */
 #game-area {
     position: absolute;
     width: 90%;
-    max-width: 1000px;
-    height: 60%;
-    bottom: 10%;
-    border-bottom: 5px solid green; 
+    height: 200px;
+    bottom: 50%; /* Center vertically */
+    transform: translateY(50%);
+    border-bottom: 2px solid #333;
     overflow: hidden;
     z-index: 10;
 }
 
-/* UI SCREENS */
-.game-screen {
+/* DINO */
+#dino {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    bottom: 0px;
+    left: 50px;
+    width: 40px;
+    height: 40px;
+    background-color: #4CAF50; /* Green dinosaur */
+    border-radius: 50%;
+    transition: border 0.1s; /* For shield effect */
+    z-index: 11; 
+}
+
+#dino.running {
+    animation: run 0.3s steps(2) infinite;
+}
+
+@keyframes run {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-2px); }
+}
+
+#dino.jumping {
+    animation: none;
+}
+
+/* GAME OBJECTS */
+.game-object {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    z-index: 12;
+}
+
+.obstacle {
+    width: 20px;
+    height: 40px;
+    background-color: #A0522D; /* Cactus brown */
+}
+
+.obstacle.bird {
+    width: 30px;
+    height: 15px;
+    background-color: #FFD700; /* Yellow bird */
+    border-radius: 50%;
+    animation: fly 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes fly {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-5px); }
+}
+
+.coin {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+}
+
+.coin.gold {
+    background-color: #FFD700;
+}
+
+.coin.diamond {
+    background-color: #00FFFF;
+    transform: rotate(45deg);
+    width: 20px;
+    height: 20px;
+}
+
+/* SCREENS (TITLE, GAME OVER, SHOP) */
+.screen {
+    position: absolute;
+    width: 80%;
+    max-width: 400px;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
     text-align: center;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    display: none;
     z-index: 100;
 }
-.game-screen.active { display: flex; }
-/* ... (SHOP STYLING remains the same) ... */
-.shop-section { 
-    width: 90%; 
-    max-height: 50vh; 
-    overflow-y: auto;
-    padding: 10px;
-    border: 1px solid #555;
-    border-radius: 5px;
+
+.screen.active {
+    display: block;
 }
-.shop-section.active { display: block; }
+
+.shop-tabs button {
+    margin: 5px;
+    padding: 8px 15px;
+    border: none;
+    background-color: #333;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+}
+
+.shop-tabs button.active {
+    background-color: #4CAF50;
+}
+
+#shop-content section {
+    display: none;
+    margin-top: 15px;
+    height: 300px;
+    overflow-y: auto;
+    text-align: left;
+    padding-right: 10px;
+}
+
+#shop-content section.active {
+    display: block;
+}
+
 .upgrade-item, .skill-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
-    margin: 5px 0;
-    background-color: #444;
-    border-radius: 3px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #555;
+}
+
+.upgrade-item:last-child, .skill-item:last-child {
+    border-bottom: none;
+}
+
+.description {
+    font-size: 0.8em;
+    color: #bbb;
+    margin: 5px 0 0 0;
+}
+
+.skill-item p {
+    margin: 0;
+    font-size: 0.9em;
 }
 
 /* HUD */
@@ -88,125 +191,92 @@ html, body {
     position: absolute;
     top: 0;
     width: 90%;
-    padding: 10px 5%;
     display: flex;
     justify-content: space-between;
-    font-size: 1.5em;
+    align-items: center;
+    padding: 10px 5%;
+    color: #333;
+    font-size: 1.2em;
     z-index: 50;
-    background: rgba(0, 0, 0, 0.3);
+    /* FIX 3: Ensure HUD does not steal touch events */
+    pointer-events: none; 
 }
 
-/* GAME OBJECTS (USING PNGs) */
-.game-object {
-    position: absolute;
-    background-size: cover;
-    background-repeat: no-repeat;
-    z-index: 20;
-}
-
-/* DINO (NOW USING dino.png) */
-#dino {
-    width: 50px;
-    height: 50px;
-    bottom: 0;
-    left: 10%;
-    /* Uncomment the line below to use your image: */
-    background-image: url('assets/dino.png'); 
-    background-color: transparent; 
-}
-#dino.jumping {
-    transition: bottom 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-/* OBSTACLES (NOW USING cactus.png, bird.png) */
-.obstacle {
-    right: -50px;
-}
-.cactus {
-    /* Uncomment the line below to use your image: */
-    background-image: url('assets/cactus.png');
-    background-color: transparent;
-    width: 30px;
-    height: 40px;
-    bottom: 0;
-}
-.bird {
-    /* Uncomment the line below to use your image: */
-    background-image: url('assets/bird.png');
-    background-color: transparent;
-    width: 40px;
-    height: 30px;
-}
-
-/* CURRENCY */
-.coin {
-    width: 20px;
-    height: 20px;
-    right: -20px;
-    border-radius: 50%;
-    background-color: #FFD700; /* Gold */
-    animation: rotate-coin 1s infinite linear;
-}
-.diamond {
-    background-color: #00FFFF; /* Cyan */
-    width: 25px;
-    height: 25px;
-    transform: rotate(45deg);
-    border-radius: 0;
-}
-@keyframes rotate-coin {
-    from { transform: rotateY(0deg); }
-    to { transform: rotateY(360deg); }
-}
-
-/* SKILL BUTTONS */
+/* SKILL BUTTONS (VISIBILITY FIX) */
 #skill-buttons-container {
     position: absolute;
-    bottom: 5px;
-    right: 5px;
+    bottom: 20px;
+    right: 20px;
     display: flex;
     gap: 10px;
     z-index: 30;
+    /* FIX 4: Force minimum dimensions for reliable layout */
+    min-height: 60px; 
+    min-width: 60px;
+    pointer-events: auto; /* Ensure buttons can be tapped */
 }
+
 .skill-button {
-    width: 60px;
-    height: 60px;
-    font-size: 0.7em;
-    padding: 0;
-    border-radius: 10px;
-    background-color: #555;
-    border: 2px solid #888;
-    color: white;
     position: relative;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #1e88e5; 
+    color: white;
+    border: 3px solid #1565c0;
+    font-weight: bold;
+    cursor: pointer;
     overflow: hidden;
+    transition: background-color 0.1s;
+    pointer-events: auto; /* Required to click individual buttons */
 }
-/* Cooldown Overlay */
+
+.skill-button.disabled {
+    background-color: #90caf9;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .skill-cooldown-overlay {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    transition: height linear;
+    background-color: rgba(0, 0, 0, 0.7);
+    transition: height 0.1s linear;
 }
 
-/* METEOR CALL VISUALS (NOW USING meteor.png) */
+/* SKILL VISUALS */
 #meteor-call-visual {
     position: absolute;
-    top: -100px;
-    right: 50%;
-    transform: translateX(50%);
-    width: 80px;
-    height: 80px;
-    /* Uncomment the line below to use your image: */
-    background-image: url('assets/meteor.png');
-    background-color: transparent;
+    bottom: 200px; 
+    right: 0;
+    width: 50px;
+    height: 50px;
+    background-color: #ff5722;
     border-radius: 50%;
-    background-size: cover;
+    box-shadow: 0 0 20px #ff5722;
     display: none;
-    z-index: 90;
+    z-index: 100;
 }
-/* Time Slow Effect */
-.slowed #game-container {
-    filter: brightness(0.7) contrast(1.2) hue-rotate(180deg);
+
+#meteor-call-visual.meteor-falling {
+    animation: meteor-fall 1s linear forwards;
+}
+
+@keyframes meteor-fall {
+    0% { transform: translate(0, -500px); opacity: 1; }
+    100% { transform: translate(-400px, 0); opacity: 0; }
+}
+
+#meteor-call-effect {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 0, 0, 0.5);
+    opacity: 0;
+    z-index: 90;
+    transition: opacity 0.1s;
 }

@@ -1,10 +1,10 @@
 /**
- * Bảo Long - FINAL AUDITED AND ROBUST SCRIPT
- * All known bugs addressed. Polished Score Accumulation and Gravity logic implemented.
+ * Bảo Long - FINAL ROBUST SCRIPT
+ * All logic, timing, and mobile input issues resolved.
  */
 
 // --- DOM ELEMENTS ---
-// (All element declarations remain the same)
+// (Element declarations remain the same)
 const gameContainer = document.getElementById('game-container');
 const titleScreen = document.getElementById('title-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
@@ -24,6 +24,7 @@ const skillButtonsContainer = document.getElementById('skill-buttons-container')
 const meteorCallEffect = document.getElementById('meteor-call-effect');
 const meteorCallVisual = document.getElementById('meteor-call-visual');
 const gameMusic = document.getElementById('game-music');
+const shopMoneyAmount = document.getElementById('shop-money-amount'); // Ensure this is declared if used in renderShop
 
 // --- GAME STATE VARIABLES ---
 let gameState = {
@@ -36,8 +37,7 @@ let gameState = {
     timeSlowTimer: 0,
     obstacleFreeTime: 0,
     invincibleTimer: 0, 
-    // FIX 1 Polish: Score now tracks fraction for accurate display
-    scoreFraction: 0,
+    scoreFraction: 0, // For consistent score accumulation
 };
 
 let playerStats = {
@@ -68,7 +68,7 @@ let moneySpawnTimer = 0;
 let obstacleSpawnRate = 1200; 
 let moneySpawnRate = 800; 
 
-// --- UPGRADE/SKILL SYSTEM DATA (Unchanged) ---
+// --- UPGRADE/SKILL SYSTEM DATA ---
 const UPGRADES = [
     { id: 'riskReward', name: 'Risk & Reward', level: 0, costBase: 100, costMult: 2, desc: (l) => `Obstacle/Money rate: +${l * 5}% / +${l * 10}%` },
     { id: 'cooldownReduction', name: 'Cooldown Reduction', level: 0, costBase: 150, costMult: 3, cap: 0.75, desc: (l) => `Skill Cooldown: -${Math.min(l * 5, 75)}%` },
@@ -76,6 +76,7 @@ const UPGRADES = [
 ];
 
 const SKILLS = [
+    // Time Slow is unlocked by default
     { id: 'timeSlow', name: 'Time Slow', unlocked: true, level: 1, cooldownBase: 60, costBase: 100, costInc: 100, currentCooldown: 0, desc: (l) => `Slows game by ${10 + (l - 1) * 10}% for 5s` },
     { id: 'shield', name: 'Shield', unlocked: false, level: 0, cooldownBase: 60, costUnlock: 150, costInc: 150, currentCooldown: 0, desc: (l) => `Invincible for ${1 + l * 0.5}s` },
     { id: 'meteorCall', name: 'Meteor Call', unlocked: false, level: 0, cooldownBase: 120, costUnlock: 500, costInc: 150, currentCooldown: 0, desc: (l) => `No Obstacles for ${5 + l}s` },
@@ -84,14 +85,12 @@ const SKILLS = [
 
 // --- CENTRALIZED UTILITY FUNCTIONS ---
 
-/** Centralized function to calculate effective cooldown based on CDR upgrade. */
 function getEffectiveCooldown(skill) {
     const cdrLevel = UPGRADES.find(u => u.id === 'cooldownReduction').level;
-    const cdrFactor = Math.min(cdrLevel * 0.05, 0.75); // Max 75%
+    const cdrFactor = Math.min(cdrLevel * 0.05, 0.75);
     return skill.cooldownBase * (1 - cdrFactor);
 }
 
-/** Used by the shop to display current cooldown. */
 function getSkillCooldown(skill) {
     return Math.round(getEffectiveCooldown(skill));
 }
@@ -99,7 +98,6 @@ function getSkillCooldown(skill) {
 
 // --- CORE GAME LOGIC ---
 
-/** Initializes the game, resetting all states and variables. */
 function initGame() {
     gameState.isRunning = false;
     gameState.isJumping = false;
@@ -109,7 +107,7 @@ function initGame() {
     gameState.timeSlowTimer = 0;
     gameState.obstacleFreeTime = 0;
     gameState.invincibleTimer = 0;
-    gameState.scoreFraction = 0; // FIX 1 Polish
+    gameState.scoreFraction = 0; 
 
     dino.style.border = 'none';
 
@@ -143,7 +141,6 @@ function initGame() {
     gameLoop.lastTime = performance.now(); 
 }
 
-/** Starts the main game loop. */
 function startGame() {
     titleScreen.classList.remove('active');
     gameOverScreen.classList.remove('active');
@@ -154,7 +151,6 @@ function startGame() {
     gameLoop(performance.now());
 }
 
-/** Pauses the game (used for Shop and Game Over). */
 function pauseGame() {
     if (!gameState.isRunning && !gameState.isPaused) return;
     gameState.isRunning = false;
@@ -163,7 +159,6 @@ function pauseGame() {
     gameMusic.pause();
 }
 
-/** Resumes the game after the shop or pause screen. */
 function resumeGame() {
     shopScreen.classList.remove('active');
     gameState.isRunning = true;
@@ -175,7 +170,6 @@ function resumeGame() {
     updateSkillButtons();
 }
 
-/** Handles the game over state. */
 function gameOver() {
     pauseGame();
     finalScore.textContent = playerStats.score; 
@@ -184,25 +178,23 @@ function gameOver() {
     dino.classList.remove('running');
 }
 
-/** Main game loop. */
+/** Main game loop with World vs Meta Delta timing. */
 function gameLoop(timestamp) {
     if (!gameState.isRunning) return;
 
-    // Split Delta Time into World (Slowed) and Meta (Real-Time)
     const rawDeltaTime = timestamp - (gameLoop.lastTime || timestamp);
     gameLoop.lastTime = timestamp;
     
-    const worldDelta = rawDeltaTime * gameState.timeSlowFactor;
-    const metaDelta = rawDeltaTime; 
+    const worldDelta = rawDeltaTime * gameState.timeSlowFactor; // For physics/movement
+    const metaDelta = rawDeltaTime; // For score/timers
 
-    // Factor used for scaling all movement and physics vectors
     const speedFactor = worldDelta / msPerFrame;
 
     if (!gameState.isPaused) {
         // --- META TIMERS (Use metaDelta/Real-Time) ---
         gameTimer += metaDelta;
         
-        // FIX 1 Polish: Score Accumulation (Distance/Speed based, fractional accumulator)
+        // Score Accumulation (Distance/Speed based, fractional accumulator)
         gameState.scoreFraction += (gameSpeed * speedFactor) * 0.1; 
         if (gameState.scoreFraction >= 1) {
             playerStats.score += Math.floor(gameState.scoreFraction);
@@ -254,9 +246,9 @@ function gameLoop(timestamp) {
 
         // --- DINO JUMP PHYSICS ---
         if (gameState.isJumping) {
-            // FIX 2 Polish: Gravity is constant (always 0.6) and is NOT scaled by time slow.
-            // This ensures jump height and duration feel consistent even in slow-mo.
+            // Gravity is constant and is applied using rawDeltaTime/msPerFrame for fixed jump feel.
             playerStats.vY -= playerStats.gravity * (rawDeltaTime / msPerFrame); 
+            // Position change is scaled by speedFactor (affected by time slow).
             playerStats.dinoBottom += playerStats.vY * speedFactor;
 
             if (playerStats.dinoBottom <= 0) {
@@ -286,7 +278,6 @@ function gameLoop(timestamp) {
         }
 
         // --- COLLISION CHECK ---
-        // FIX 3 Tidy: Pass the state check directly
         checkCollisions(isInvincible);
 
         // --- HUD UPDATE ---
@@ -297,18 +288,14 @@ function gameLoop(timestamp) {
 }
 gameLoop.lastTime = 0;
 
-// ... (Rest of the helper functions remain the same for brevity) ...
 
-/** Handles player jump on click/tap/space. */
 function jump() {
     if (!gameState.isRunning || gameState.isJumping) return;
-
     gameState.isJumping = true;
     playerStats.vY = playerStats.jumpSpeed;
     dino.classList.add('jumping');
 }
 
-/** Handles all movement logic for objects in the game area. */
 function moveObjects(speedFactor) {
     const objects = gameArea.querySelectorAll('.obstacle, .coin');
     const moveAmount = gameSpeed * speedFactor;
@@ -317,14 +304,13 @@ function moveObjects(speedFactor) {
         const currentRight = parseFloat(obj.style.right) || 0;
         obj.style.right = `${currentRight + moveAmount}px`;
 
-        // FIX 10 Audit: Removed when 100px off-screen for cleanup
+        // Removed when slightly off-screen for cleanup
         if (currentRight > gameArea.clientWidth + 100) { 
             obj.remove();
         }
     });
 }
 
-/** Spawns a new game object (Obstacle or Money). */
 function spawnObject(type) {
     const object = document.createElement('div');
     object.classList.add('game-object');
@@ -356,7 +342,6 @@ function spawnObject(type) {
     gameArea.appendChild(object);
 }
 
-/** Checks for collisions between Dino and other objects. */
 function checkCollisions(isInvincible) {
     const dinoRect = dino.getBoundingClientRect();
     const objects = gameArea.querySelectorAll('.obstacle, .coin');
@@ -386,18 +371,15 @@ function checkCollisions(isInvincible) {
     }
 }
 
-/** Updates the HUD with current score and money. */
 function updateHUD() {
     scoreText.textContent = `Score: ${playerStats.score}`;
     moneyText.textContent = `$${playerStats.money}`;
 }
 
-/** Adds money to player's total. */
 function collectMoney(amount) {
     playerStats.money += amount;
 }
 
-/** Opens the shop menu. */
 function openShop() {
     pauseGame();
     shopScreen.classList.add('active');
@@ -405,7 +387,6 @@ function openShop() {
     renderShop();
 }
 
-/** Renders the shop content based on current player stats. */
 function renderShop() {
     // Render Upgrades 
     upgradesSection.innerHTML = '<h3>Passive Upgrades</h3>';
@@ -459,12 +440,10 @@ function renderShop() {
         skillsSection.appendChild(item);
     });
 
-    // Attach event listeners to new buttons
     upgradesSection.querySelectorAll('button').forEach(btn => btn.addEventListener('click', handleUpgradePurchase));
     skillsSection.querySelectorAll('button').forEach(btn => btn.addEventListener('click', handleSkillPurchase));
 }
 
-/** Handles the purchase of an upgrade. */
 function handleUpgradePurchase(e) {
     const upgradeId = e.currentTarget.dataset.id;
     const upgrade = UPGRADES.find(u => u.id === upgradeId);
@@ -479,7 +458,6 @@ function handleUpgradePurchase(e) {
     }
 }
 
-/** Handles the purchase/upgrade of a skill. */
 function handleSkillPurchase(e) {
     const skillId = e.currentTarget.dataset.id;
     const type = e.currentTarget.dataset.type;
@@ -507,7 +485,6 @@ function handleSkillPurchase(e) {
     }
 }
 
-/** Generates and updates the UI buttons for active skills. */
 function updateSkillButtons() {
     skillButtonsContainer.innerHTML = '';
     SKILLS.filter(s => s.unlocked).forEach(skill => {
@@ -522,7 +499,31 @@ function updateSkillButtons() {
     });
 }
 
-/** Activates the corresponding skill. */
+function updateCooldowns(rawDeltaTime) {
+    SKILLS.filter(s => s.unlocked).forEach(skill => {
+        if (skill.currentCooldown > 0) {
+            skill.currentCooldown -= rawDeltaTime / 1000; 
+            if (skill.currentCooldown < 0) skill.currentCooldown = 0;
+
+            const button = document.getElementById(`skill-${skill.id}`);
+            if (button) {
+                const effectiveCD = getEffectiveCooldown(skill);
+                const percent = (skill.currentCooldown / effectiveCD) * 100;
+                const overlay = button.querySelector('.skill-cooldown-overlay');
+                
+                overlay.style.height = `${percent}%`;
+                if (skill.currentCooldown === 0) {
+                    button.classList.remove('disabled');
+                    overlay.style.opacity = 0;
+                } else {
+                    button.classList.add('disabled');
+                    overlay.style.opacity = 1;
+                }
+            }
+        }
+    });
+}
+
 function activateSkill(skillId) {
     const skill = SKILLS.find(s => s.id === skillId);
     if (!skill || skill.currentCooldown > 0 || !gameState.isRunning) return;
@@ -591,12 +592,16 @@ document.getElementById('tab-skills').addEventListener('click', () => {
     upgradesSection.classList.remove('active');
 });
 
-// Jump Controls - Robust Mobile Touch Logic
-gameContainer.addEventListener('touchstart', (e) => {
-    const isUIElement = ['BUTTON', 'A', 'INPUT'].includes(e.target.tagName);
-    
+// FIX: Robust Global Touch Jump (Overcomes CSS/Z-index issues)
+document.addEventListener('touchstart', (e) => {
+    const targetTag = e.target.tagName;
+    // Check if the tap target is NOT an element meant for UI interaction
+    const isUIElement = ['BUTTON', 'A', 'INPUT'].includes(targetTag);
+
     if (!isUIElement) {
-        e.preventDefault();
+        // Prevent default browser scroll/zoom gestures
+        e.preventDefault(); 
+        
         if (gameState.isRunning) {
             jump();
         } else if (titleScreen.classList.contains('active')) {
