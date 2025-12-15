@@ -1,282 +1,117 @@
-/* GLOBAL RESETS AND MOBILE FIXES */
+/* RESET + MOBILE GAME BASE */
 html, body {
-    height: 100%;
     margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    /* FIX 1: Disable default mobile touch gestures */
-    touch-action: none; 
+    touch-action: none;
+    user-select: none;
+    background: #000;
     font-family: sans-serif;
 }
 
+/* MAIN CONTAINER */
 #game-container {
     position: relative;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f7f7f7;
-    transition: filter 0.5s;
+    width: 100vw;
+    height: 100vh;
 }
 
-#game-container.slowed {
-    filter: grayscale(100%) brightness(70%);
-}
-
-/* BACKGROUND (INPUT FIX) */
-#background-placeholder {
+/* BACKGROUND */
+#background {
     position: absolute;
-    width: 100%;
-    height: 100%;
+    inset: 0;
+    background-image: url("assets/bg.png");
+    background-size: cover;
+    background-position: bottom;
     z-index: 0;
-    background: linear-gradient(to bottom, #87ceeb, #e0f6ff); /* Light blue sky */
-    /* FIX 2: Ensure background does not steal touch events */
-    pointer-events: none; 
-}
-
-/* GAME AREA */
-#game-area {
-    position: absolute;
-    width: 90%;
-    height: 200px;
-    bottom: 50%; /* Center vertically */
-    transform: translateY(50%);
-    border-bottom: 2px solid #333;
-    overflow: hidden;
-    z-index: 10;
-}
-
-/* DINO */
-#dino {
-    position: absolute;
-    bottom: 0px;
-    left: 50px;
-    width: 40px;
-    height: 40px;
-    background-color: #4CAF50; /* Green dinosaur */
-    border-radius: 50%;
-    transition: border 0.1s; /* For shield effect */
-    z-index: 11; 
-}
-
-#dino.running {
-    animation: run 0.3s steps(2) infinite;
-}
-
-@keyframes run {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-2px); }
-}
-
-#dino.jumping {
-    animation: none;
-}
-
-/* GAME OBJECTS */
-.game-object {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    z-index: 12;
-}
-
-.obstacle {
-    width: 20px;
-    height: 40px;
-    background-color: #A0522D; /* Cactus brown */
-}
-
-.obstacle.bird {
-    width: 30px;
-    height: 15px;
-    background-color: #FFD700; /* Yellow bird */
-    border-radius: 50%;
-    animation: fly 0.5s ease-in-out infinite alternate;
-}
-
-@keyframes fly {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-5px); }
-}
-
-.coin {
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-}
-
-.coin.gold {
-    background-color: #FFD700;
-}
-
-.coin.diamond {
-    background-color: #00FFFF;
-    transform: rotate(45deg);
-    width: 20px;
-    height: 20px;
-}
-
-/* SCREENS (TITLE, GAME OVER, SHOP) */
-.screen {
-    position: absolute;
-    width: 80%;
-    max-width: 400px;
-    padding: 20px;
-    background-color: rgba(0, 0, 0, 0.85);
-    color: white;
-    text-align: center;
-    border-radius: 10px;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-    display: none;
-    z-index: 100;
-}
-
-.screen.active {
-    display: block;
-}
-
-.shop-tabs button {
-    margin: 5px;
-    padding: 8px 15px;
-    border: none;
-    background-color: #333;
-    color: white;
-    cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.2s;
-}
-
-.shop-tabs button.active {
-    background-color: #4CAF50;
-}
-
-#shop-content section {
-    display: none;
-    margin-top: 15px;
-    height: 300px;
-    overflow-y: auto;
-    text-align: left;
-    padding-right: 10px;
-}
-
-#shop-content section.active {
-    display: block;
-}
-
-.upgrade-item, .skill-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px dashed #555;
-}
-
-.upgrade-item:last-child, .skill-item:last-child {
-    border-bottom: none;
-}
-
-.description {
-    font-size: 0.8em;
-    color: #bbb;
-    margin: 5px 0 0 0;
-}
-
-.skill-item p {
-    margin: 0;
-    font-size: 0.9em;
+    pointer-events: none;
 }
 
 /* HUD */
 #hud {
     position: absolute;
-    top: 0;
-    width: 90%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 5%;
-    color: #333;
-    font-size: 1.2em;
+    top: 10px;
+    left: 10px;
     z-index: 50;
-    /* FIX 3: Ensure HUD does not steal touch events */
-    pointer-events: none; 
-}
-
-/* SKILL BUTTONS (VISIBILITY FIX) */
-#skill-buttons-container {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 10px;
-    z-index: 30;
-    /* FIX 4: Force minimum dimensions for reliable layout */
-    min-height: 60px; 
-    min-width: 60px;
-    pointer-events: auto; /* Ensure buttons can be tapped */
-}
-
-.skill-button {
-    position: relative;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background-color: #1e88e5; 
     color: white;
-    border: 3px solid #1565c0;
-    font-weight: bold;
-    cursor: pointer;
-    overflow: hidden;
-    transition: background-color 0.1s;
-    pointer-events: auto; /* Required to click individual buttons */
-}
-
-.skill-button.disabled {
-    background-color: #90caf9;
-    cursor: not-allowed;
+    font-size: 1.2em;
     pointer-events: none;
 }
 
-.skill-cooldown-overlay {
+/* GAME AREA */
+#game-area {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    transition: height 0.1s linear;
+    bottom: 10%;
+    left: 5%;
+    width: 90%;
+    height: 60%;
+    border-bottom: 4px solid green;
+    z-index: 10;
+    overflow: visible;
 }
 
-/* SKILL VISUALS */
-#meteor-call-visual {
-    position: absolute;
-    bottom: 200px; 
-    right: 0;
-    width: 50px;
-    height: 50px;
-    background-color: #ff5722;
-    border-radius: 50%;
-    box-shadow: 0 0 20px #ff5722;
-    display: none;
-    z-index: 100;
-}
-
-#meteor-call-visual.meteor-falling {
-    animation: meteor-fall 1s linear forwards;
-}
-
-@keyframes meteor-fall {
-    0% { transform: translate(0, -500px); opacity: 1; }
-    100% { transform: translate(-400px, 0); opacity: 0; }
-}
-
-#meteor-call-effect {
+/* DINO */
+#dino {
     position: absolute;
     bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(255, 0, 0, 0.5);
-    opacity: 0;
-    z-index: 90;
-    transition: opacity 0.1s;
+    left: 10%;
+    width: 50px;
+    height: 50px;
+    background-image: url("assets/dino.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+/* OBSTACLES */
+.obstacle {
+    position: absolute;
+    bottom: 0;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+.cactus {
+    width: 30px;
+    height: 40px;
+    background-image: url("assets/cactus.png");
+}
+
+.bird {
+    width: 40px;
+    height: 30px;
+    bottom: 40%;
+    background-image: url("assets/bird.png");
+}
+
+/* SKILL BUTTONS */
+#skill-buttons-container {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 10px;
+    z-index: 40;
+}
+
+.skill-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    border: 2px solid #aaa;
+    background: #444;
+    color: white;
+    font-size: 0.7em;
+}
+
+/* METEOR */
+.meteor {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background-image: url("assets/meteor.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    z-index: 30;
 }

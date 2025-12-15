@@ -1,624 +1,103 @@
-/**
- * Bảo Long - FINAL ROBUST SCRIPT
- * All logic, timing, and mobile input issues resolved.
- */
+const gameArea = document.getElementById("game-area");
+const dino = document.getElementById("dino");
+const scoreText = document.getElementById("score");
+const music = document.getElementById("game-music");
 
-// --- DOM ELEMENTS ---
-// (Element declarations remain the same)
-const gameContainer = document.getElementById('game-container');
-const titleScreen = document.getElementById('title-screen');
-const gameOverScreen = document.getElementById('game-over-screen');
-const shopScreen = document.getElementById('shop-screen');
-const gameArea = document.getElementById('game-area');
-const dino = document.getElementById('dino');
-const startButton = document.getElementById('start-button');
-const restartButton = document.getElementById('restart-button');
-const resumeButton = document.getElementById('resume-button');
-const scoreText = document.getElementById('score-text');
-const moneyText = document.getElementById('money-text');
-const finalScore = document.getElementById('final-score');
-const finalMoney = document.getElementById('final-money');
-const upgradesSection = document.getElementById('upgrades-section');
-const skillsSection = document.getElementById('skills-section');
-const skillButtonsContainer = document.getElementById('skill-buttons-container');
-const meteorCallEffect = document.getElementById('meteor-call-effect');
-const meteorCallVisual = document.getElementById('meteor-call-visual');
-const gameMusic = document.getElementById('game-music');
-const shopMoneyAmount = document.getElementById('shop-money-amount'); // Ensure this is declared if used in renderShop
+let velocityY = 0;
+let gravity = 0.6;
+let jumping = false;
+let score = 0;
+let obstacles = [];
+let gameRunning = true;
 
-// --- GAME STATE VARIABLES ---
-let gameState = {
-    isRunning: false,
-    isJumping: false,
-    isPaused: false,
-    isTimeSlowed: false, 
-    timeSlowFactor: 1.0, 
-    timeSlowDuration: 5000, 
-    timeSlowTimer: 0,
-    obstacleFreeTime: 0,
-    invincibleTimer: 0, 
-    scoreFraction: 0, // For consistent score accumulation
-};
+/* MUSIC */
+music.volume = 0.5;
+music.play().catch(() => {});
 
-let playerStats = {
-    money: 0,
-    score: 0,
-    dinoBottom: 0,
-    jumpHeight: 120,
-    gravity: 0.6,
-    jumpSpeed: 10,
-    vY: 0,
-};
+/* INPUT */
+document.addEventListener("touchstart", (e) => {
+    if (!gameRunning) return;
+    if (e.target.closest(".skill-button")) return;
+    jump();
+}, { passive: false });
 
-let gameSpeed = 5; 
-const baseSpeed = 5;
-const targetFrameRate = 60;
-const msPerFrame = 1000 / targetFrameRate;
-
-let speedIncreaseInterval = 60000; 
-let shopInterval = 120000;
-let animationFrameId;
-
-let gameTimer = 0;
-let speedTimer = 0;
-let shopTimer = 0;
-let obstacleSpawnTimer = 0;
-let moneySpawnTimer = 0;
-
-let obstacleSpawnRate = 1200; 
-let moneySpawnRate = 800; 
-
-// --- UPGRADE/SKILL SYSTEM DATA ---
-const UPGRADES = [
-    { id: 'riskReward', name: 'Risk & Reward', level: 0, costBase: 100, costMult: 2, desc: (l) => `Obstacle/Money rate: +${l * 5}% / +${l * 10}%` },
-    { id: 'cooldownReduction', name: 'Cooldown Reduction', level: 0, costBase: 150, costMult: 3, cap: 0.75, desc: (l) => `Skill Cooldown: -${Math.min(l * 5, 75)}%` },
-    { id: 'luck', name: 'Luck', level: 0, costBase: 50, costMult: 1.5, cap: 25, desc: (l) => `Diamond Chance: +${Math.min(l * 1, 25)}% (Total: ${l}%)` },
-];
-
-const SKILLS = [
-    // Time Slow is unlocked by default
-    { id: 'timeSlow', name: 'Time Slow', unlocked: true, level: 1, cooldownBase: 60, costBase: 100, costInc: 100, currentCooldown: 0, desc: (l) => `Slows game by ${10 + (l - 1) * 10}% for 5s` },
-    { id: 'shield', name: 'Shield', unlocked: false, level: 0, cooldownBase: 60, costUnlock: 150, costInc: 150, currentCooldown: 0, desc: (l) => `Invincible for ${1 + l * 0.5}s` },
-    { id: 'meteorCall', name: 'Meteor Call', unlocked: false, level: 0, cooldownBase: 120, costUnlock: 500, costInc: 150, currentCooldown: 0, desc: (l) => `No Obstacles for ${5 + l}s` },
-];
-
-
-// --- CENTRALIZED UTILITY FUNCTIONS ---
-
-function getEffectiveCooldown(skill) {
-    const cdrLevel = UPGRADES.find(u => u.id === 'cooldownReduction').level;
-    const cdrFactor = Math.min(cdrLevel * 0.05, 0.75);
-    return skill.cooldownBase * (1 - cdrFactor);
-}
-
-function getSkillCooldown(skill) {
-    return Math.round(getEffectiveCooldown(skill));
-}
-
-
-// --- CORE GAME LOGIC ---
-
-function initGame() {
-    gameState.isRunning = false;
-    gameState.isJumping = false;
-    gameState.isPaused = false;
-    gameState.isTimeSlowed = false;
-    gameState.timeSlowFactor = 1.0;
-    gameState.timeSlowTimer = 0;
-    gameState.obstacleFreeTime = 0;
-    gameState.invincibleTimer = 0;
-    gameState.scoreFraction = 0; 
-
-    dino.style.border = 'none';
-
-    playerStats.money = 0;
-    playerStats.score = 0; 
-    
-    gameSpeed = baseSpeed;
-    gameTimer = 0;
-    speedTimer = 0;
-    shopTimer = 0;
-    obstacleSpawnTimer = 0;
-    moneySpawnTimer = 0;
-
-    SKILLS.forEach(skill => skill.currentCooldown = 0);
-
-    gameArea.innerHTML = '';
-    gameArea.appendChild(dino);
-
-    dino.style.bottom = `0px`;
-    dino.classList.remove('jumping', 'running');
-    gameContainer.classList.remove('slowed');
-
-    updateHUD();
-    updateSkillButtons();
-    titleScreen.classList.add('active');
-    gameOverScreen.classList.remove('active');
-    shopScreen.classList.remove('active');
-    gameMusic.pause();
-    gameMusic.currentTime = 0;
-    
-    gameLoop.lastTime = performance.now(); 
-}
-
-function startGame() {
-    titleScreen.classList.remove('active');
-    gameOverScreen.classList.remove('active');
-    gameState.isRunning = true;
-    dino.classList.add('running');
-    gameMusic.play().catch(e => console.log("Music auto-play prevented. User interaction required."));
-    gameLoop.lastTime = performance.now(); 
-    gameLoop(performance.now());
-}
-
-function pauseGame() {
-    if (!gameState.isRunning && !gameState.isPaused) return;
-    gameState.isRunning = false;
-    gameState.isPaused = true;
-    cancelAnimationFrame(animationFrameId);
-    gameMusic.pause();
-}
-
-function resumeGame() {
-    shopScreen.classList.remove('active');
-    gameState.isRunning = true;
-    gameState.isPaused = false;
-    gameLoop.lastTime = performance.now(); 
-    gameLoop(performance.now());
-    gameMusic.play().catch(e => console.log("Music resume failed."));
-    dino.classList.add('running');
-    updateSkillButtons();
-}
-
-function gameOver() {
-    pauseGame();
-    finalScore.textContent = playerStats.score; 
-    finalMoney.textContent = playerStats.money;
-    gameOverScreen.classList.add('active');
-    dino.classList.remove('running');
-}
-
-/** Main game loop with World vs Meta Delta timing. */
-function gameLoop(timestamp) {
-    if (!gameState.isRunning) return;
-
-    const rawDeltaTime = timestamp - (gameLoop.lastTime || timestamp);
-    gameLoop.lastTime = timestamp;
-    
-    const worldDelta = rawDeltaTime * gameState.timeSlowFactor; // For physics/movement
-    const metaDelta = rawDeltaTime; // For score/timers
-
-    const speedFactor = worldDelta / msPerFrame;
-
-    if (!gameState.isPaused) {
-        // --- META TIMERS (Use metaDelta/Real-Time) ---
-        gameTimer += metaDelta;
-        
-        // Score Accumulation (Distance/Speed based, fractional accumulator)
-        gameState.scoreFraction += (gameSpeed * speedFactor) * 0.1; 
-        if (gameState.scoreFraction >= 1) {
-            playerStats.score += Math.floor(gameState.scoreFraction);
-            gameState.scoreFraction %= 1; 
-        }
-        
-        speedTimer += metaDelta;
-        if (speedTimer >= speedIncreaseInterval) {
-            gameSpeed += 0.5;
-            speedTimer = 0;
-        }
-
-        shopTimer += metaDelta;
-        if (shopTimer >= shopInterval) {
-            shopTimer = 0;
-            openShop();
-            return;
-        }
-
-        // --- SKILL TIMERS (Use worldDelta for in-game effects) ---
-
-        // Shield Invincibility Timer
-        if (gameState.invincibleTimer > 0) {
-            gameState.invincibleTimer -= worldDelta;
-            if (gameState.invincibleTimer <= 0) {
-                dino.style.border = 'none';
-                gameState.invincibleTimer = 0;
-            }
-        }
-        const isInvincible = gameState.invincibleTimer > 0;
-        
-        // Time Slow Duration Countdown
-        if (gameState.isTimeSlowed) {
-            gameState.timeSlowTimer -= worldDelta;
-            if (gameState.timeSlowTimer <= 0) {
-                gameState.isTimeSlowed = false;
-                gameState.timeSlowFactor = 1.0; 
-                gameContainer.classList.remove('slowed');
-            }
-        }
-
-        // Meteor Call Obstacle Free Timer
-        if (gameState.obstacleFreeTime > 0) {
-            gameState.obstacleFreeTime -= worldDelta;
-        }
-        
-        // Cooldowns tick down using RAW DELTA TIME (Real-World)
-        updateCooldowns(rawDeltaTime); 
-
-        // --- DINO JUMP PHYSICS ---
-        if (gameState.isJumping) {
-            // Gravity is constant and is applied using rawDeltaTime/msPerFrame for fixed jump feel.
-            playerStats.vY -= playerStats.gravity * (rawDeltaTime / msPerFrame); 
-            // Position change is scaled by speedFactor (affected by time slow).
-            playerStats.dinoBottom += playerStats.vY * speedFactor;
-
-            if (playerStats.dinoBottom <= 0) {
-                playerStats.dinoBottom = 0;
-                gameState.isJumping = false;
-                playerStats.vY = 0;
-                dino.classList.remove('jumping');
-            }
-            dino.style.bottom = `${playerStats.dinoBottom}px`;
-        }
-
-        // --- OBJECT GENERATION & MOVEMENT ---
-        obstacleSpawnTimer += worldDelta;
-        moveObjects(speedFactor); 
-        
-        const obstacleRateModifier = 1 + (UPGRADES.find(u => u.id === 'riskReward').level * 0.05);
-        if (obstacleSpawnTimer > obstacleSpawnRate / obstacleRateModifier && gameState.obstacleFreeTime <= 0) {
-            spawnObject('obstacle');
-            obstacleSpawnTimer = 0;
-        }
-
-        moneySpawnTimer += worldDelta;
-        const moneyRateModifier = 1 + (UPGRADES.find(u => u.id === 'riskReward').level * 0.1);
-        if (moneySpawnTimer > moneySpawnRate / moneyRateModifier) {
-            spawnObject('money');
-            moneySpawnTimer = 0;
-        }
-
-        // --- COLLISION CHECK ---
-        checkCollisions(isInvincible);
-
-        // --- HUD UPDATE ---
-        updateHUD();
-    }
-
-    animationFrameId = requestAnimationFrame(gameLoop);
-}
-gameLoop.lastTime = 0;
-
-
+/* JUMP */
 function jump() {
-    if (!gameState.isRunning || gameState.isJumping) return;
-    gameState.isJumping = true;
-    playerStats.vY = playerStats.jumpSpeed;
-    dino.classList.add('jumping');
+    if (jumping) return;
+    velocityY = 12;
+    jumping = true;
 }
 
-function moveObjects(speedFactor) {
-    const objects = gameArea.querySelectorAll('.obstacle, .coin');
-    const moveAmount = gameSpeed * speedFactor;
+/* GAME LOOP */
+function update() {
+    if (!gameRunning) return;
 
-    objects.forEach(obj => {
-        const currentRight = parseFloat(obj.style.right) || 0;
-        obj.style.right = `${currentRight + moveAmount}px`;
+    velocityY -= gravity;
+    let bottom = parseFloat(getComputedStyle(dino).bottom);
 
-        // Removed when slightly off-screen for cleanup
-        if (currentRight > gameArea.clientWidth + 100) { 
-            obj.remove();
-        }
-    });
-}
-
-function spawnObject(type) {
-    const object = document.createElement('div');
-    object.classList.add('game-object');
-
-    const areaHeight = gameArea.clientHeight;
-
-    if (type === 'obstacle') {
-        const isBird = Math.random() > 0.6;
-        if (isBird) {
-            object.classList.add('obstacle', 'bird');
-            const birdHeight = Math.floor(Math.random() * (areaHeight * 0.4 - 80) + 80); 
-            object.style.bottom = `${birdHeight}px`;
-        } else {
-            object.classList.add('obstacle', 'cactus');
-            object.style.bottom = '0px';
-        }
-    } else if (type === 'money') {
-        const luckLevel = UPGRADES.find(u => u.id === 'luck').level;
-        const diamondChance = 0.1 + (luckLevel * 0.01); 
-        const isDiamond = Math.random() < diamondChance;
-        
-        object.classList.add('coin', isDiamond ? 'diamond' : 'gold');
-        object.dataset.value = isDiamond ? 10 : 1;
-
-        const coinHeight = Math.random() < 0.5 ? 0 : Math.floor(Math.random() * (playerStats.jumpHeight * 0.8) + 30);
-        object.style.bottom = `${coinHeight}px`;
+    bottom += velocityY;
+    if (bottom <= 0) {
+        bottom = 0;
+        velocityY = 0;
+        jumping = false;
     }
 
-    gameArea.appendChild(object);
+    dino.style.bottom = bottom + "px";
+
+    moveObstacles();
+    score++;
+    scoreText.textContent = "Score: " + score;
+
+    requestAnimationFrame(update);
 }
 
-function checkCollisions(isInvincible) {
-    const dinoRect = dino.getBoundingClientRect();
-    const objects = gameArea.querySelectorAll('.obstacle, .coin');
+/* OBSTACLES */
+function spawnObstacle() {
+    const obs = document.createElement("div");
+    obs.classList.add("obstacle");
 
-    for (let i = 0; i < objects.length; i++) {
-        const obj = objects[i];
-        if (!gameState.isRunning) return; 
-
-        const objRect = obj.getBoundingClientRect();
-
-        const horizontalOverlap = dinoRect.left < objRect.right && dinoRect.right > objRect.left;
-        const verticalOverlap = dinoRect.bottom > objRect.top && dinoRect.top < objRect.bottom;
-
-        if (horizontalOverlap && verticalOverlap) {
-            if (obj.classList.contains('obstacle')) {
-                if (!isInvincible) {
-                    gameOver();
-                    return; 
-                } else {
-                    obj.remove();
-                }
-            } else if (obj.classList.contains('coin')) {
-                collectMoney(parseInt(obj.dataset.value));
-                obj.remove();
-            }
-        }
-    }
-}
-
-function updateHUD() {
-    scoreText.textContent = `Score: ${playerStats.score}`;
-    moneyText.textContent = `$${playerStats.money}`;
-}
-
-function collectMoney(amount) {
-    playerStats.money += amount;
-}
-
-function openShop() {
-    pauseGame();
-    shopScreen.classList.add('active');
-    shopMoneyAmount.textContent = playerStats.money;
-    renderShop();
-}
-
-function renderShop() {
-    // Render Upgrades 
-    upgradesSection.innerHTML = '<h3>Passive Upgrades</h3>';
-    UPGRADES.forEach(upgrade => {
-        const nextLevel = upgrade.level + 1;
-        const currentCost = upgrade.costBase * Math.pow(upgrade.costMult, upgrade.level);
-        
-        const item = document.createElement('div');
-        item.classList.add('upgrade-item');
-        item.innerHTML = `
-            <div>
-                <strong>${upgrade.name} (Lvl ${upgrade.level})</strong>
-                <p class="description">${upgrade.desc(nextLevel)}</p>
-            </div>
-            <button data-id="${upgrade.id}" ${playerStats.money < currentCost ? 'disabled' : ''}>
-                Buy Lvl ${nextLevel} ($${Math.round(currentCost)})
-            </button>
-        `;
-        upgradesSection.appendChild(item);
-    });
-
-    // Render Skills
-    skillsSection.innerHTML = '<h3>Active Skills</h3>';
-    SKILLS.forEach(skill => {
-        const nextLevel = skill.level + 1;
-        const isUnlocked = skill.unlocked;
-        let cost, buttonText, buttonDisabled;
-
-        if (!isUnlocked) {
-            cost = skill.costUnlock;
-            buttonText = `Unlock ($${cost})`;
-            buttonDisabled = playerStats.money < cost;
-        } else {
-            cost = skill.costBase + (skill.costInc * (skill.level - 1));
-            buttonText = `Upgrade Lvl ${nextLevel} ($${cost})`;
-            buttonDisabled = playerStats.money < cost;
-        }
-
-        const item = document.createElement('div');
-        item.classList.add('skill-item');
-        item.innerHTML = `
-            <div>
-                <strong>${skill.name} (Lvl ${skill.level}${!isUnlocked ? ' - Locked' : ''})</strong>
-                <p class="description">${skill.desc(nextLevel)}</p>
-                <p>Cooldown: ${getSkillCooldown(skill)}s</p>
-            </div>
-            <button data-id="${skill.id}" data-type="${isUnlocked ? 'upgrade' : 'unlock'}" ${buttonDisabled ? 'disabled' : ''}>
-                ${buttonText}
-            </button>
-        `;
-        skillsSection.appendChild(item);
-    });
-
-    upgradesSection.querySelectorAll('button').forEach(btn => btn.addEventListener('click', handleUpgradePurchase));
-    skillsSection.querySelectorAll('button').forEach(btn => btn.addEventListener('click', handleSkillPurchase));
-}
-
-function handleUpgradePurchase(e) {
-    const upgradeId = e.currentTarget.dataset.id;
-    const upgrade = UPGRADES.find(u => u.id === upgradeId);
-    if (!upgrade) return;
-
-    const cost = Math.round(upgrade.costBase * Math.pow(upgrade.costMult, upgrade.level));
-    if (playerStats.money >= cost) {
-        playerStats.money -= cost;
-        upgrade.level++;
-        shopMoneyAmount.textContent = playerStats.money;
-        renderShop();
-    }
-}
-
-function handleSkillPurchase(e) {
-    const skillId = e.currentTarget.dataset.id;
-    const type = e.currentTarget.dataset.type;
-    const skill = SKILLS.find(s => s.id === skillId);
-    if (!skill) return;
-
-    let cost;
-    if (type === 'unlock') {
-        cost = skill.costUnlock;
+    if (Math.random() < 0.5) {
+        obs.classList.add("cactus");
     } else {
-        cost = skill.costBase + (skill.costInc * (skill.level - 1));
+        obs.classList.add("bird");
     }
 
-    if (playerStats.money >= cost) {
-        playerStats.money -= cost;
-        if (type === 'unlock') {
-            skill.unlocked = true;
-            skill.level = 1;
-        } else {
-            skill.level++;
-        }
-        shopMoneyAmount.textContent = playerStats.money;
-        renderShop();
-        updateSkillButtons(); 
-    }
+    obs.style.right = "-60px";
+    gameArea.appendChild(obs);
+    obstacles.push(obs);
 }
 
-function updateSkillButtons() {
-    skillButtonsContainer.innerHTML = '';
-    SKILLS.filter(s => s.unlocked).forEach(skill => {
-        const btn = document.createElement('button');
-        btn.id = `skill-${skill.id}`;
-        btn.classList.add('skill-button', 'unlocked');
-        btn.dataset.id = skill.id;
-        const abbreviation = skill.name.split(' ').map(w => w[0]).join(''); 
-        btn.innerHTML = `${abbreviation}<div class="skill-cooldown-overlay" style="height: 0%"></div>`;
-        btn.addEventListener('click', () => activateSkill(skill.id));
-        skillButtonsContainer.appendChild(btn);
-    });
-}
+function moveObstacles() {
+    obstacles.forEach((obs, i) => {
+        let right = parseFloat(obs.style.right);
+        obs.style.right = right + 5 + "px";
 
-function updateCooldowns(rawDeltaTime) {
-    SKILLS.filter(s => s.unlocked).forEach(skill => {
-        if (skill.currentCooldown > 0) {
-            skill.currentCooldown -= rawDeltaTime / 1000; 
-            if (skill.currentCooldown < 0) skill.currentCooldown = 0;
-
-            const button = document.getElementById(`skill-${skill.id}`);
-            if (button) {
-                const effectiveCD = getEffectiveCooldown(skill);
-                const percent = (skill.currentCooldown / effectiveCD) * 100;
-                const overlay = button.querySelector('.skill-cooldown-overlay');
-                
-                overlay.style.height = `${percent}%`;
-                if (skill.currentCooldown === 0) {
-                    button.classList.remove('disabled');
-                    overlay.style.opacity = 0;
-                } else {
-                    button.classList.add('disabled');
-                    overlay.style.opacity = 1;
-                }
-            }
+        if (right > gameArea.offsetWidth + 60) {
+            obs.remove();
+            obstacles.splice(i, 1);
         }
     });
 }
 
-function activateSkill(skillId) {
-    const skill = SKILLS.find(s => s.id === skillId);
-    if (!skill || skill.currentCooldown > 0 || !gameState.isRunning) return;
+/* METEOR SKILL */
+document.getElementById("meteor-btn").addEventListener("click", () => {
+    const meteor = document.createElement("div");
+    meteor.classList.add("meteor");
+    meteor.style.top = "-80px";
+    meteor.style.left = "50%";
+    gameArea.appendChild(meteor);
 
-    skill.currentCooldown = getEffectiveCooldown(skill);
-
-    switch (skillId) {
-        case 'timeSlow':
-            const slowPercent = 0.1 + (skill.level - 1) * 0.1;
-            gameState.timeSlowFactor = 1.0 - slowPercent;
-            gameState.isTimeSlowed = true;
-            gameState.timeSlowTimer = gameState.timeSlowDuration; 
-            gameContainer.classList.add('slowed');
-            break;
-
-        case 'shield':
-            const duration = 1 + skill.level * 0.5;
-            gameState.invincibleTimer = duration * 1000; 
-            dino.style.border = '2px dashed yellow';
-            break;
-
-        case 'meteorCall':
-            const safeDuration = 5 + skill.level;
-            gameState.obstacleFreeTime = safeDuration * 1000; 
-            
-            meteorCallEffect.style.opacity = 1;
-            setTimeout(() => meteorCallEffect.style.opacity = 0, 100);
-
-            meteorCallVisual.classList.add('meteor-falling');
-            meteorCallVisual.style.display = 'block';
-            setTimeout(() => {
-                meteorCallVisual.classList.remove('meteor-falling');
-                meteorCallVisual.style.display = 'none';
-                meteorCallVisual.style.top = '-100px';
-            }, 1000);
-            break;
-    }
-    updateCooldowns(0); 
-}
-
-
-// --- EVENT LISTENERS AND INITIALIZATION ---
-function initializeGame() {
-    updateSkillButtons();
-    initGame();
-}
-
-startButton.addEventListener('click', startGame);
-restartButton.addEventListener('click', () => { 
-    initGame(); 
-    startGame(); 
-});
-resumeButton.addEventListener('click', resumeGame);
-
-// Shop Tabs (listeners remain the same)
-document.getElementById('tab-upgrades').addEventListener('click', () => {
-    document.getElementById('tab-upgrades').classList.add('active');
-    document.getElementById('tab-skills').classList.remove('active');
-    upgradesSection.classList.add('active');
-    skillsSection.classList.remove('active');
-});
-document.getElementById('tab-skills').addEventListener('click', () => {
-    document.getElementById('tab-skills').classList.add('active');
-    document.getElementById('tab-upgrades').classList.remove('active');
-    skillsSection.classList.add('active');
-    upgradesSection.classList.remove('active');
-});
-
-// FIX: Robust Global Touch Jump (Overcomes CSS/Z-index issues)
-document.addEventListener('touchstart', (e) => {
-    const targetTag = e.target.tagName;
-    // Check if the tap target is NOT an element meant for UI interaction
-    const isUIElement = ['BUTTON', 'A', 'INPUT'].includes(targetTag);
-
-    if (!isUIElement) {
-        // Prevent default browser scroll/zoom gestures
-        e.preventDefault(); 
-        
-        if (gameState.isRunning) {
-            jump();
-        } else if (titleScreen.classList.contains('active')) {
-            startGame();
+    let y = -80;
+    const fall = setInterval(() => {
+        y += 12;
+        meteor.style.top = y + "px";
+        if (y > gameArea.offsetHeight) {
+            meteor.remove();
+            clearInterval(fall);
         }
-    }
-}, { passive: false }); 
-
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault();
-        if (!gameState.isRunning && titleScreen.classList.contains('active')) {
-            startGame();
-        } else {
-            jump();
-        }
-    }
+    }, 16);
 });
 
-initializeGame();
+/* START */
+setInterval(spawnObstacle, 1800);
+update();
