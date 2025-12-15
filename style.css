@@ -27,8 +27,7 @@ html, body {
     position: absolute;
     width: 100%;
     height: 100%;
-    /* * UNCOMMENT THE LINE BELOW TO USE YOUR IMAGE
-    */
+    /* Uncomment the line below to use your image: */
     background-image: url('assets/bg.png'); 
     background-color: #87CEEB; /* Fallback/Placeholder color */
     background-size: cover;
@@ -47,7 +46,55 @@ html, body {
     overflow: hidden;
     z-index: 10;
 }
-/* ... (UI styles remain the same) ... */
+
+/* UI SCREENS */
+.game-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 100;
+}
+.game-screen.active { display: flex; }
+/* ... (SHOP STYLING remains the same) ... */
+.shop-section { 
+    width: 90%; 
+    max-height: 50vh; 
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 5px;
+}
+.shop-section.active { display: block; }
+.upgrade-item, .skill-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background-color: #444;
+    border-radius: 3px;
+}
+
+/* HUD */
+#hud {
+    position: absolute;
+    top: 0;
+    width: 90%;
+    padding: 10px 5%;
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.5em;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.3);
+}
 
 /* GAME OBJECTS (USING PNGs) */
 .game-object {
@@ -63,23 +110,20 @@ html, body {
     height: 50px;
     bottom: 0;
     left: 10%;
-    /* * UNCOMMENT THE LINE BELOW TO USE YOUR IMAGE
-    */
+    /* Uncomment the line below to use your image: */
     background-image: url('assets/dino.png'); 
-    background-color: transparent; /* Remove placeholder color */
+    background-color: transparent; 
 }
 #dino.jumping {
-    /* Set transition only for the jump physics, not general movement */
     transition: bottom 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-/* OBSTACLES */
+/* OBSTACLES (NOW USING cactus.png, bird.png) */
 .obstacle {
-    right: -50px; /* Start far off screen */
+    right: -50px;
 }
 .cactus {
-    /* * UNCOMMENT THE LINE BELOW TO USE YOUR IMAGE
-    */
+    /* Uncomment the line below to use your image: */
     background-image: url('assets/cactus.png');
     background-color: transparent;
     width: 30px;
@@ -87,15 +131,14 @@ html, body {
     bottom: 0;
 }
 .bird {
-    /* * UNCOMMENT THE LINE BELOW TO USE YOUR IMAGE
-    */
+    /* Uncomment the line below to use your image: */
     background-image: url('assets/bird.png');
     background-color: transparent;
     width: 40px;
     height: 30px;
 }
 
-/* CURRENCY (NO PNGs for simple geometry) */
+/* CURRENCY */
 .coin {
     width: 20px;
     height: 20px;
@@ -108,23 +151,62 @@ html, body {
     background-color: #00FFFF; /* Cyan */
     width: 25px;
     height: 25px;
-    transform: rotate(45deg); /* Diamond shape appearance */
+    transform: rotate(45deg);
     border-radius: 0;
 }
+@keyframes rotate-coin {
+    from { transform: rotateY(0deg); }
+    to { transform: rotateY(360deg); }
+}
 
-/* ... (Remaining styles like SKILL BUTTONS and ANIMATIONS remain the same) ... */
+/* SKILL BUTTONS */
+#skill-buttons-container {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    display: flex;
+    gap: 10px;
+    z-index: 30;
+}
+.skill-button {
+    width: 60px;
+    height: 60px;
+    font-size: 0.7em;
+    padding: 0;
+    border-radius: 10px;
+    background-color: #555;
+    border: 2px solid #888;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+/* Cooldown Overlay */
+.skill-cooldown-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    transition: height linear;
+}
 
 /* METEOR CALL VISUALS (NOW USING meteor.png) */
 #meteor-call-visual {
-    /* ... (positioning) ... */
-    /* * UNCOMMENT THE LINE BELOW TO USE YOUR IMAGE
-    */
+    position: absolute;
+    top: -100px;
+    right: 50%;
+    transform: translateX(50%);
+    width: 80px;
+    height: 80px;
+    /* Uncomment the line below to use your image: */
     background-image: url('assets/meteor.png');
     background-color: transparent;
-    /* ... (size, display none) ... */
+    border-radius: 50%;
+    background-size: cover;
+    display: none;
+    z-index: 90;
 }
-
-/* Time Slow Effect (Slightly enhanced) */
+/* Time Slow Effect */
 .slowed #game-container {
-    filter: brightness(0.7) contrast(1.2) hue-rotate(180deg); /* More noticeable visual shift */
+    filter: brightness(0.7) contrast(1.2) hue-rotate(180deg);
 }
