@@ -1,7 +1,5 @@
 /* Bảo Long - script.js
    Uses assets/*.png and assets/music.mp3 in the assets folder.
-   If you want to test with rectangle placeholders instead of images,
-   comment images load or set images.* = null (see commented block).
 */
 
 /* ----------------- Basic setup ----------------- */
@@ -82,7 +80,7 @@ for (const k in imageFiles) {
   images[k].onerror = () => { loadedImages++; console.warn('Image failed:', imageFiles[k]); };
 }
 
-/* If you want to force placeholders instead of images, uncomment next block:
+/* If you want placeholders instead of real images, uncomment next lines:
 images.dino = null; images.cactus = null; images.bird = null; images.meteor = null; loadedImages = totalImagesToLoad;
 */
 
@@ -159,6 +157,7 @@ window.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventD
 
 /* ---------- Skill & button handlers (use pointerdown for mobile reliability) ---------- */
 function safePointer(el, fn) {
+  if (!el) return;
   el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); fn(ev); });
 }
 safePointer(skillButtons.timeSlow, () => useSkill('timeSlow'));
@@ -180,8 +179,21 @@ safePointer(resumeBtn, () => {
   closeShop();
 });
 safePointer(restartBtn, () => {
-  // quick restart - reload page for clean reset
-  location.reload();
+  // NEW: proper in-game restart (no page reload)
+  gameOverModal.classList.add('hidden');
+  gameOverModal.classList.remove('visible');
+
+  // ensure shop closed
+  shopModal.classList.remove('visible'); shopModal.classList.add('hidden');
+
+  // reset shop timer trigger so shop won't immediately reopen
+  shopTriggeredAt = null;
+
+  // restart music (user interacted by tapping restart)
+  try { bgMusic.currentTime = 0; bgMusic.play().catch(()=>{}); } catch(e){}
+
+  // start fresh without reloading the page
+  startGame();
 });
 
 /* ---------- Shop / Buy logic ---------- */
@@ -291,6 +303,9 @@ function resetState() {
   obstacleTimer = 0; moneyTimer = 0;
   nextObstacleInterval = getAdjustedObstacleInterval(); nextMoneyInterval = getAdjustedMoneyInterval();
   upgrades.risk.lvl = upgrades.risk.lvl || 0;
+
+  // IMPORTANT: clear shop trigger so shop won't pop immediately after restart
+  shopTriggeredAt = null;
 }
 
 function loop(ts) {
