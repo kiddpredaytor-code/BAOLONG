@@ -1,59 +1,128 @@
-* {
+/* Mobile-first, landscape-preferred game CSS */
+/* Prevent selection and unwanted gestures */
+html,body {
+  height: 100%;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  touch-action: manipulation;
+  -webkit-user-select: none;
+  -ms-user-select: none;
   user-select: none;
-}
-
-html, body {
-  width: 100%;
-  height: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background: #86c7f3;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   overflow: hidden;
-  background: #000;
-  font-family: Arial, sans-serif;
 }
 
-canvas {
+/* Canvas covers whole viewport */
+#gameCanvas {
   display: block;
+  width: 100vw;
+  height: 100vh;
+  background: url('assets/bg.png') center/cover no-repeat; /* background image */
+  /* If you don't have bg.png or want a flat color, comment above and uncomment next line */
+  /* background: linear-gradient(#7ec8ff, #3fa9f5); */
+  touch-action: none;
 }
 
-.overlay {
-  position: absolute;
+/* UI overlays */
+#ui {
+  position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
-  color: white;
+  pointer-events: none;
+}
+
+#topBar {
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  font-weight: 600;
+}
+
+#topBar > div { background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 10px; pointer-events: none; }
+
+#skillBar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.skill {
+  min-width: 86px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 700;
+  background: linear-gradient(180deg,#fff,#ddd);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  touch-action: manipulation;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 6px;
+}
+
+.skill.locked {
+  filter: grayscale(70%);
+  opacity: 0.7;
+}
+
+.cooldown { font-size: 11px; font-weight: 600; color: #333; }
+
+/* Overlays (title, shop, game over) */
+#overlay, #shopModal, #gameOver {
+  position: fixed;
+  inset: 0;
+  display: flex;
   justify-content: center;
-  z-index: 10;
+  align-items: center;
+  pointer-events: auto;
 }
 
 .hidden { display: none; }
+.visible { display: flex; }
 
-button {
-  padding: 12px 20px;
-  margin: 6px;
-  font-size: 16px;
-  border-radius: 6px;
+.card {
+  width: min(920px, 95vw);
+  max-width: 920px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  text-align: center;
+}
+
+.menu button {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
   border: none;
-  background: #28a745;
-  color: white;
+  font-weight: 700;
+  background: linear-gradient(180deg,#27ae60,#1e8449);
+  color: #fff;
 }
 
-#hud {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  right: 8px;
-  display: flex;
-  justify-content: space-between;
-  z-index: 5;
-  color: white;
-}
+.small { font-size: 12px; opacity: 0.8; margin-top: 6px; }
 
-#skillButtons button {
-  font-size: 12px;
-  padding: 8px;
+/* Shop layout */
+.shopRow { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.shopItem { flex: 1 1 240px; background: #f6f6f6; padding: 10px; border-radius: 10px; text-align: left; }
+.buyBtn { margin-top: 8px; padding: 8px 10px; }
+
+/* Game over / shop buttons */
+.shopActions { margin-top: 12px; display:flex; gap:10px; justify-content:center; }
+
+@media (orientation:portrait) {
+  /* If user holds portrait, we scale UI so it still fits well */
+  .card { width: 95vw; }
+  #skillBar { bottom: 8px; gap: 6px; }
+  .skill { min-width: 70px; padding: 8px; font-size: 13px; }
 }
