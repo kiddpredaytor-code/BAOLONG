@@ -43,7 +43,7 @@ let playerVy = 0; // Vertical velocity (in px/frame)
 
 // --- Game Loop and Object Management ---
 let gameLoopInterval;
-let spawnTimer = 0; // Counter for spawning objects
+let spawnTimer = 0; 
 let spawnRate = 90; // Frames between object spawns (lower is faster)
 let lastFrameTime = performance.now();
 
@@ -58,13 +58,13 @@ const SKILLS = {
     slow: { 
         id: 'slow', 
         name: 'Time Slow', 
-        level: 1, // Starts at 1
+        level: 1, 
         unlocked: true,
         costBase: 100, 
         costIncrement: 100, 
-        cooldown: 60, // seconds
+        cooldown: 60, 
         currentCooldown: 0,
-        effect: { slow: 0.10, duration: 5 } // 5 seconds duration
+        effect: { slow: 0.10, duration: 5 }
     },
     shield: { 
         id: 'shield', 
@@ -74,7 +74,7 @@ const SKILLS = {
         unlockCost: 150,
         costBase: 150, 
         costIncrement: 150, 
-        cooldown: 60, // seconds
+        cooldown: 60, 
         currentCooldown: 0,
         effect: { baseDuration: 1, durationIncrement: 0.5 } 
     },
@@ -86,7 +86,7 @@ const SKILLS = {
         unlockCost: 500,
         costBase: 150, 
         costIncrement: 150, 
-        cooldown: 120, // seconds
+        cooldown: 120, 
         currentCooldown: 0,
         effect: { baseDuration: 5, durationIncrement: 1 } 
     }
@@ -138,10 +138,8 @@ function resetGame() {
     playerY = 0;
     playerVy = 0;
     
-    // Clear all game objects
     dom.gameObjects.innerHTML = '';
     
-    // Reset skill cooldowns
     for(const skillId in SKILLS) {
         SKILLS[skillId].currentCooldown = 0;
     }
@@ -169,7 +167,7 @@ function gameLoop(timestamp) {
         return;
     }
 
-    const deltaTime = (timestamp - lastFrameTime) / 1000; // Delta time in seconds
+    const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
 
     const effectiveSpeed = gameState.gameSpeed * gameState.speedMultiplier / gameState.slowdownFactor;
@@ -181,12 +179,10 @@ function gameLoop(timestamp) {
     updateGameStats(deltaTime);
     updateSkillCooldowns(deltaTime);
 
-    // Check for shop pause (every 2 minutes = 120 seconds)
     if (gameState.timeElapsed - gameState.lastShopTime >= 120) {
         pauseGameForShop();
     }
     
-    // Check for speed increase (every 1 minute = 60 seconds)
     if (gameState.timeElapsed - gameState.lastSpeedIncrease >= 60) {
         increaseGameSpeed();
     }
@@ -201,16 +197,14 @@ function handleJump() {
     if (!gameState.isGameRunning || gameState.isPaused || gameState.isGameOver || playerY > 0) {
         return;
     }
-    // Only jump if on the ground (playerY == 0)
     playerVy = jumpVelocity;
 }
 
 function updatePlayer(deltaTime) {
     if (playerY > 0 || playerVy > 0) {
-        playerVy -= gravity; // Apply gravity
+        playerVy -= gravity; 
         playerY += playerVy;
         
-        // Land on ground
         if (playerY <= 0) {
             playerY = 0;
             playerVy = 0;
@@ -220,37 +214,31 @@ function updatePlayer(deltaTime) {
 }
 
 function updatePlayerPosition() {
-    // CSS transform for vertical movement
     dom.player.style.transform = `translateY(-${playerY}px)`;
 }
 
 // --- Object Spawning & Movement ---
 
 function spawnObjects(deltaTime, effectiveSpeed) {
-    // Spawn Timer: deltaTime is in seconds, convert to frames approximation
     const frameApproximation = deltaTime * 60; 
     spawnTimer += frameApproximation;
 
-    // Calculate dynamic spawn rate based on speed and Risk&Reward
     const rrBonus = UPGRADES.riskReward.level * UPGRADES.riskReward.effect.obstacleRate;
     const dynamicSpawnRate = spawnRate / (1 + rrBonus); 
 
-    // Stop spawning if Meteor is active
     if (gameState.isMeteorActive) return;
 
     if (spawnTimer >= dynamicSpawnRate) {
         spawnTimer = 0;
 
-        // Choose between obstacle or currency
         const isObstacle = Math.random() < 0.7; 
         
         let newObject;
         if (isObstacle) {
             newObject = Math.random() < 0.5 ? createCactus() : createBird();
         } else {
-            // Determine currency type
             const luckBonus = UPGRADES.luck.level * UPGRADES.luck.effect.diamondChance;
-            const diamondChance = Math.min(0.1 + luckBonus, 0.25); // Max 25%
+            const diamondChance = Math.min(0.1 + luckBonus, 0.25);
             newObject = Math.random() < diamondChance ? createDiamond() : createCoin();
         }
 
@@ -262,12 +250,7 @@ function createCactus() {
     const cactus = document.createElement('div');
     cactus.className = 'game-object obstacle cactus';
     cactus.dataset.type = 'obstacle';
-    
-    // Placeholder for cactus.png
-    cactus.innerHTML = '<div class="asset-placeholder" style="background-color: #38761D;"></div>'; 
-    // Uncomment below:
-    // cactus.style.backgroundImage = 'url("assets/cactus.png")'; 
-    
+    // Image is handled by CSS (background-image: url('assets/cactus.png');)
     return cactus;
 }
 
@@ -276,15 +259,9 @@ function createBird() {
     bird.className = 'game-object obstacle bird';
     bird.dataset.type = 'obstacle';
     
-    // Y position: high enough to be jumped over (1.5-2x player height)
     const birdY = groundHeight + playerSize * (1.5 + Math.random() * 0.5); 
     bird.style.bottom = birdY + 'px';
-    
-    // Placeholder for bird.png
-    bird.innerHTML = '<div class="asset-placeholder" style="background-color: #F7B801;"></div>'; 
-    // Uncomment below:
-    // bird.style.backgroundImage = 'url("assets/bird.png")'; 
-    
+    // Image is handled by CSS (background-image: url('assets/bird.png');)
     return bird;
 }
 
@@ -293,17 +270,11 @@ function createCoin() {
     coin.className = 'game-object currency coin';
     coin.dataset.value = '1';
     
-    // Y position: ground or air
-    let coinY;
-    if (Math.random() < 0.5) {
-        coinY = groundHeight; // Ground level
-    } else {
-        coinY = groundHeight + playerSize * (0.5 + Math.random() * 1.5); // Jumpable air
-    }
+    let coinY = Math.random() < 0.5 
+        ? groundHeight // Ground level
+        : groundHeight + playerSize * (0.5 + Math.random() * 1.5); // Air
     coin.style.bottom = coinY + 'px';
-    
-    // Placeholder for gold coin
-    coin.innerHTML = '<div class="asset-placeholder" style="background-color: #FFD700;"></div>'; 
+    // Image is handled by CSS (background-image: url('assets/coin.png');)
     return coin;
 }
 
@@ -312,12 +283,9 @@ function createDiamond() {
     diamond.className = 'game-object currency diamond';
     diamond.dataset.value = '10';
     
-    // Y position: usually in the air
     const diamondY = groundHeight + playerSize * (1 + Math.random() * 2);
     diamond.style.bottom = diamondY + 'px';
-
-    // Placeholder for diamond
-    diamond.innerHTML = '<div class="asset-placeholder" style="background-color: #00FFFF;"></div>'; 
+    // Image is handled by CSS (background-image: url('assets/diamond.png');)
     return diamond;
 }
 
@@ -329,14 +297,11 @@ function moveObjects(effectiveSpeed) {
     for (let i = objects.length - 1; i >= 0; i--) {
         const obj = objects[i];
         
-        // Get current X position (browser handles it, we only set it on creation)
         let currentX = parseFloat(obj.style.right) || 0;
         
-        // Move object to the left
         currentX += effectiveSpeed;
         obj.style.right = currentX + 'px';
 
-        // Remove object if it's off-screen
         if (currentX > gameScreenW) {
             obj.remove();
         }
@@ -346,11 +311,11 @@ function moveObjects(effectiveSpeed) {
 // --- Collision Detection ---
 
 function checkCollision() {
-    if (gameState.isInvincible) return; // Skip collision if invincible
+    if (gameState.isInvincible) return;
 
     const playerRect = dom.player.getBoundingClientRect();
     const playerHitBox = {
-        left: playerRect.left + playerRect.width * 0.1, // Minor adjustment
+        left: playerRect.left + playerRect.width * 0.1,
         right: playerRect.right - playerRect.width * 0.1,
         top: playerRect.top + playerRect.height * 0.1,
         bottom: playerRect.bottom - playerRect.height * 0.1,
@@ -362,7 +327,6 @@ function checkCollision() {
         const obj = objects[i];
         const objRect = obj.getBoundingClientRect();
 
-        // Simple AABB Collision Check
         const isColliding = (
             playerHitBox.left < objRect.right &&
             playerHitBox.right > objRect.left &&
@@ -375,9 +339,7 @@ function checkCollision() {
                 gameOver();
                 return;
             } else if (obj.dataset.value) {
-                // Currency collected
                 gameState.money += parseInt(obj.dataset.value);
-                // Increase score slightly for collecting
                 gameState.score += 5; 
                 obj.remove();
             }
@@ -389,12 +351,11 @@ function checkCollision() {
 
 function updateGameStats(deltaTime) {
     gameState.timeElapsed += deltaTime;
-    // Score increases with speed
     gameState.score += Math.ceil(gameState.gameSpeed * gameState.speedMultiplier / 10); 
 }
 
 function increaseGameSpeed() {
-    gameState.speedMultiplier += 0.1; // 10% speed increase
+    gameState.speedMultiplier += 0.1;
     gameState.lastSpeedIncrease = gameState.timeElapsed;
     console.log(`Speed increased! Multiplier: ${gameState.speedMultiplier.toFixed(2)}`);
 }
@@ -403,7 +364,7 @@ function gameOver() {
     gameState.isGameRunning = false;
     gameState.isGameOver = true;
     dom.music.pause();
-    dom.music.currentTime = 0; // Reset music
+    dom.music.currentTime = 0;
     cancelAnimationFrame(gameLoopInterval);
 
     document.getElementById('final-score').textContent = gameState.score;
@@ -418,22 +379,21 @@ function pauseGameForShop() {
     cancelAnimationFrame(gameLoopInterval);
     dom.music.pause();
     
-    // Update shop UI before display
     updateShopUI();
     dom.shopScreen.classList.add('active');
 }
 
 function resumeGame() {
     gameState.isPaused = false;
-    gameState.lastShopTime = gameState.timeElapsed; // Reset shop timer
+    gameState.lastShopTime = gameState.timeElapsed;
     dom.shopScreen.classList.remove('active');
     dom.music.play().catch(e => console.log("Music resume failed:", e));
     
-    lastFrameTime = performance.now(); // Recalibrate delta time
+    lastFrameTime = performance.now();
     gameLoopInterval = requestAnimationFrame(gameLoop);
 }
 
-// --- UI Updates ---
+// --- UI Updates and Shop Logic (Remains unchanged from previous version) ---
 
 function updateUI() {
     dom.scoreDisplay.textContent = `Score: ${gameState.score}`;
@@ -544,14 +504,12 @@ function getSkillEffectDescription(key, skill) {
     }
 }
 
-// --- Shop Logic ---
-
 function buyUpgrade(key, cost) {
     if (gameState.money >= cost) {
         gameState.money -= cost;
         UPGRADES[key].level++;
-        updateShopUI(); // Re-render shop
-        updateUI();     // Update money display
+        updateShopUI();
+        updateUI();
     }
 }
 
@@ -560,7 +518,7 @@ function unlockSkill(key) {
     if (gameState.money >= skill.unlockCost) {
         gameState.money -= skill.unlockCost;
         skill.unlocked = true;
-        skill.level = 1; // Unlocking starts it at level 1
+        skill.level = 1;
         updateShopUI();
         updateUI();
         updateSkillButtons();
@@ -577,8 +535,6 @@ function upgradeSkill(key, cost) {
         updateSkillButtons();
     }
 }
-
-// --- Active Skill Logic ---
 
 function updateSkillButtons() {
     for (const key in SKILLS) {
@@ -607,7 +563,6 @@ function activateSkill(skillId) {
     const skill = SKILLS[skillId];
     if (!skill.unlocked || skill.currentCooldown > 0 || !gameState.isGameRunning || gameState.isPaused) return;
 
-    // Put skill on cooldown
     skill.currentCooldown = getEffectiveCooldown(skill);
     updateSkillButtons();
 
@@ -657,28 +612,26 @@ function updateSkillCooldownUI() {
     }
 }
 
-// --- Specific Skill Implementations ---
-
 function activateSlow(skill) {
-    if (gameState.isSlowActive) return; // Prevent stacking
+    if (gameState.isSlowActive) return;
     
     gameState.isSlowActive = true;
     const slowEffect = 0.10 + (skill.level - 1) * 0.10;
-    gameState.slowdownFactor = 1 / (1 - slowEffect); // e.g., 10% slow -> 1 / 0.9 = ~1.11 slowdown factor
+    gameState.slowdownFactor = 1 / (1 - slowEffect);
     
     setTimeout(() => {
         gameState.isSlowActive = false;
         gameState.slowdownFactor = 1;
-    }, skill.effect.duration * 1000); // Duration is constant 5s for slow
+    }, skill.effect.duration * 1000);
 }
 
 function activateShield(skill) {
-    if (gameState.isInvincible) return; // Prevent stacking
+    if (gameState.isInvincible) return;
 
     const duration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
 
     gameState.isInvincible = true;
-    dom.player.style.outline = '3px solid gold'; // Visual feedback for shield
+    dom.player.style.outline = '3px solid gold';
 
     setTimeout(() => {
         gameState.isInvincible = false;
@@ -687,18 +640,14 @@ function activateShield(skill) {
 }
 
 function activateMeteor(skill) {
-    if (gameState.isMeteorActive) return; // Prevent stacking
+    if (gameState.isMeteorActive) return;
 
     const duration = skill.effect.baseDuration + skill.level * skill.effect.durationIncrement;
     
     gameState.isMeteorActive = true;
     
-    // Meteor Visual: Placeholder for meteor.png (only if you uncomment it later)
-    // Note: The object will not move, just flash the screen and pause obstacle spawning.
-    // Use the flash element for effect.
     dom.meteorFlash.classList.add('flash-active');
     
-    // Deactivate after 500ms
     setTimeout(() => {
         dom.meteorFlash.classList.remove('flash-active');
     }, 500);
@@ -709,6 +658,4 @@ function activateMeteor(skill) {
     }, duration * 1000);
 }
 
-
-// Start the game initialization once the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', initGame);

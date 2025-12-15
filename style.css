@@ -2,7 +2,7 @@
 :root {
     --player-size: 8vh;
     --ground-height: 20vh;
-    --game-speed: 1s; /* Initial placeholder */
+    --game-speed: 1s;
 }
 
 html, body {
@@ -36,8 +36,12 @@ html, body {
     border-radius: 10px;
     text-align: center;
     z-index: 100;
-    display: none;
+    display: none; /* Default hidden */
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    /* Centering Fix */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .screen.active {
@@ -61,10 +65,6 @@ html, body {
     transition: background-color 0.2s;
 }
 
-.screen button:hover, .shop-item button:hover {
-    background-color: #2980b9;
-}
-
 /* Game Screen */
 #game-screen {
     width: 100%;
@@ -72,10 +72,10 @@ html, body {
     position: relative;
     background-color: #7ED9CC; /* Base sky color */
     overflow: hidden;
-    user-select: none; /* Prevent text selection on mobile */
+    user-select: none;
 }
 
-/* Background Placeholder (bg.png) */
+/* Background (bg.png) */
 #background {
     position: absolute;
     bottom: 0;
@@ -84,15 +84,14 @@ html, body {
     height: var(--ground-height);
     background-color: #4CAF50; /* Ground placeholder color */
     z-index: 1;
+    
+    /* UNCOMMENT FOR bg.png */
+    /* background-image: url('assets/bg.png'); */
+    /* background-size: cover; */
+    /* background-repeat: repeat-x; */
 }
 
-#background .asset-placeholder {
-    /* Background Placeholder Size */
-    width: 100%;
-    height: 100%;
-}
-
-/* Player (Dino) */
+/* Player (dino.png) */
 #player {
     position: absolute;
     bottom: var(--ground-height);
@@ -100,30 +99,13 @@ html, body {
     width: var(--player-size);
     height: var(--player-size);
     z-index: 10;
-    transition: transform 0.1s ease-out; /* For smooth jump initiation */
-}
-
-/* Asset Placeholder Style */
-.asset-placeholder {
-    width: 100%;
-    height: 100%;
-    /* border: 2px solid black; */
-    box-sizing: border-box;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 0.6rem;
-    color: black;
-}
-/* Comment out below and use real images */
-/*
-#player > .asset-placeholder { background-image: url('assets/dino.png'); background-size: contain; background-repeat: no-repeat; }
-#background > .asset-placeholder { background-image: url('assets/bg.png'); background-size: cover; background-repeat: repeat-x; }
-*/
-
-/* Player Jump Animation Class */
-.jump {
-    /* Transform is controlled by JS to accurately track position */
+    transition: transform 0.1s ease-out;
+    background-color: transparent; /* Player area is transparent now */
+    
+    /* UNCOMMENT FOR dino.png */
+    /* background-image: url('assets/dino.png'); */
+    /* background-size: contain; */
+    /* background-repeat: no-repeat; */
 }
 
 /* Game Objects (Obstacles/Currency) */
@@ -134,32 +116,42 @@ html, body {
     width: 5vh;
     height: 5vh;
     z-index: 5;
-    will-change: transform; /* Performance optimization for movement */
+    will-change: transform;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-color: transparent; /* Objects are transparent now */
 }
 
 .cactus {
     height: 8vh;
     width: 5vh;
-    bottom: var(--ground-height);
+    
+    /* UNCOMMENT FOR cactus.png */
+    /* background-image: url('assets/cactus.png'); */
 }
 
 .bird {
     height: 6vh;
     width: 8vh;
-    /* Y position set by JS */
+    
+    /* UNCOMMENT FOR bird.png */
+    /* background-image: url('assets/bird.png'); */
 }
 
 .coin, .diamond {
     height: 4vh;
     width: 4vh;
     border-radius: 50%;
+    
+    /* UNCOMMENT FOR coin.png */
+    /* background-image: url('assets/coin.png'); */
 }
 
-/* Placeholder Colors */
-.cactus .asset-placeholder { background-color: #38761D; } /* Cactus Green */
-.bird .asset-placeholder { background-color: #F7B801; } /* Bird Yellow */
-.coin .asset-placeholder { background-color: #FFD700; } /* Gold Coin */
-.diamond .asset-placeholder { background-color: #00FFFF; } /* Diamond Cyan */
+.diamond {
+    /* UNCOMMENT FOR diamond.png (if separate file) */
+    /* background-image: url('assets/diamond.png'); */
+}
+
 
 /* UI Elements */
 #stats-ui {
@@ -222,7 +214,7 @@ html, body {
     background-color: rgba(0, 0, 0, 0.7);
     transform: translateY(100%); /* Start hidden/full cooldown */
     transition: transform linear;
-    pointer-events: none; /* Allow click on button underneath */
+    pointer-events: none;
 }
 
 /* Meteor Effect Flash */
@@ -248,7 +240,6 @@ html, body {
     50% { opacity: 1; }
     100% { opacity: 0; }
 }
-
 
 /* Shop Specific Styles */
 #shop-screen h1 { margin-bottom: 5px; }
@@ -307,26 +298,4 @@ html, body {
 .shop-item button:disabled {
     background-color: #95a5a6;
     cursor: not-allowed;
-}
-
-/* Ensure mobile landscape orientation fit */
-@media (orientation: portrait) {
-    /* Optional: Provide a hint for landscape */
-    /*
-    #game-container::before {
-        content: "Please rotate your device to landscape for the best experience.";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.9);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 1.5rem;
-        text-align: center;
-        z-index: 200;
-    }
-    */
 }
