@@ -325,9 +325,9 @@ function createObject(type) {
     const scaleRef = cvs.width / 550; 
     
     let props = {};
-    if (type === 'normal') { props = { src: 'normal.png', score: 20, spd: 3.0, w: 40 }; }
-    if (type === 'nnormal') { props = { src: 'nnormal.png', score: 50, spd: 4.5, w: 32 }; }
-    if (type === 'bomb') { props = { src: 'bomb.png', score: -55, spd: 2.4, w: 40 }; }
+    if (type === 'normal') { props = { src: 'normal.png', score: 10, spd: 3.0, w: 40 }; }
+    if (type === 'nnormal') { props = { src: 'nnormal.png', score: 20, spd: 4.5, w: 32 }; }
+    if (type === 'bomb') { props = { src: 'bomb.png', score: -25, spd: 2.4, w: 40 }; }
     if (type === 'streak') { props = { src: 'streak.png', score: 0, spd: 6.0, w: 20 }; }
 
     const size = props.w * scaleRef;
