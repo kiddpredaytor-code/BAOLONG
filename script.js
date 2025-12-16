@@ -177,9 +177,9 @@ function update(dt) {
 
 function spawnObject() {
     const r = Math.random() * 201;
-    let type = 'normal', spd = 3, sc = 10, w = 40;
-    if (r > 100 && r < 150) { type = 'nnormal'; spd = 4.5; sc = 20; w = 35; }
-    else if (r >= 150 && r < 200) { type = 'bomb'; spd = 2.5; sc = -25; w = 40; }
+    let type = 'normal', spd = 3, sc = 25, w = 40;
+    if (r > 100 && r < 150) { type = 'nnormal'; spd = 4.5; sc = 50; w = 35; }
+    else if (r >= 150 && r < 200) { type = 'bomb'; spd = 2.5; sc = -55; w = 40; }
     else if (r >= 200) { type = 'streak'; spd = 6; sc = 0; w = 25; }
 
     objects.push({
