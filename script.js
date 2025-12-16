@@ -1,521 +1,444 @@
-/* ================= CONFIG & STATE ================= */
-const CONFIG = {
-    // PHYSICS: Positive goes UP, Negative goes DOWN
-    GRAVITY: -0.8,     
-    JUMP_FORCE: 15,    
-    
-    // VISUALS
-    VISUAL_OFFSET: 120, // Lifts the game 120px from bottom (fixes "too low" issue)
-    
-    BASE_SPEED: 6,
-    SHOP_INTERVAL: 60, // Seconds
+/* STATE MANAGEMENT */
+const state = {
+    screen: 'menu', 
+    characterSet: 1, 
+    characterPhase: 'a',
+    isAdminUnlocked: false,
+    difficulty: 'easy',
+    stage: 1,
+    score: 0,
+    timeLeft: 60,
+    streakCount: 0,
+    isStreakActive: false,
+    streakTimer: 0,
+    gameRunning: false
 };
 
-const STATE = {
-    isPlaying: false,
-    isPaused: false,
-    isGameOver: false,
-    frames: 0,
-    timeAlive: 0,
-    distance: 0,
-    money: 0,
-    speed: CONFIG.BASE_SPEED,
-    gameTime: 0, 
-    shopTimer: 0,
-    
-    // Entity Management
-    obstacles: [],
-    coins: [],
-    
-    // Dino Physics
-    dinoY: 0,
-    dinoVy: 0,
-    isJumping: false,
-    isDucking: false, // Core state for ducking
-    
-    // Stats
-    stat_risk_lvl: 0, 
-    stat_cd_lvl: 0,   
-    stat_luck_lvl: 0, 
-    
-    // Skills
-    skills: {
-        1: { name: "Time Slow", unlocked: true, level: 1, active: false, cd: 0, maxCd: 15 },
-        2: { name: "Shield", unlocked: false, level: 1, active: false, cd: 0, maxCd: 20 },
-        3: { name: "Meteor", unlocked: false, level: 1, active: false, cd: 0, maxCd: 30 }
+const constants = {
+    bucketSpeed: 8, // Will scale dynamically
+    bucketWidthRatio: 0.15, // 15% of screen width
+    bucketHeightRatio: 0.08,
+    stageTargets: {
+        easy: [500, 1000, 1500],
+        hard: [1000, 2000, 3000]
     }
 };
 
-/* ================= DOM ELEMENTS ================= */
-const els = {
-    container: document.getElementById('game-container'),
-    dino: document.getElementById('dino'),
-    world: document.getElementById('world'),
-    uiDist: document.getElementById('ui-dist'),
-    uiTime: document.getElementById('ui-time'),
-    uiMoney: document.getElementById('ui-money'),
-    shop: document.getElementById('shop-overlay'),
-    startScreen: document.getElementById('start-screen'),
-    startTitle: document.getElementById('start-title'),
-    effectOverlay: document.getElementById('effect-overlay'),
-    bgm: document.getElementById('bgm'),
-    sfxDead: document.getElementById('sfx-dead')
+/* ASSETS */
+const assets = {
+    images: {},
+    audio: {
+        menu: document.getElementById('bgm-menu'),
+        game: document.getElementById('bgm-game'),
+        fail: document.getElementById('sfx-fail')
+    }
 };
 
-/* ================= INITIALIZATION ================= */
-function init() {
-    // Keyboard Inputs
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    
-    // Mobile Inputs: JUMP on general tap (outside controls)
-    els.container.addEventListener('touchstart', handleTouchStart);
-    
-    // Mobile Inputs: DUCK Button
-    const duckBtn = document.getElementById('duck-btn');
-    duckBtn.addEventListener('touchstart', (e) => {
-        e.stopPropagation(); 
-        STATE.isDucking = true; // Sets the state when held
-    });
-    duckBtn.addEventListener('touchend', (e) => {
-        e.stopPropagation();
-        STATE.isDucking = false; // Resets the state when touch released
-    });
+const imageFiles = [
+    'standby1a.png', 'standby1b.png', 'standby1c.png',
+    'standby2a.png', 'standby2b.png', 'standby2c.png',
+    'normal.png', 'nnormal.png', 'bomb.png', 'streak.png'
+];
 
-    document.getElementById('start-screen').addEventListener('click', startGame);
-    document.getElementById('close-shop').addEventListener('click', closeShop);
-
-    updateShopUI();
-    gameLoop();
-}
-
-function startGame() {
-    if (STATE.isPlaying) return;
-    
-    els.bgm.play().catch(e => console.log("Audio requires interaction"));
-    
-    resetGame();
-    STATE.isPlaying = true;
-    els.startScreen.classList.add('hidden');
-    lastTime = performance.now();
-    requestAnimationFrame(loop);
-}
-
-function resetGame() {
-    STATE.isGameOver = false;
-    STATE.isPaused = false;
-    STATE.timeAlive = 0;
-    STATE.distance = 0;
-    STATE.money = 0;
-    STATE.gameTime = 0;
-    STATE.speed = CONFIG.BASE_SPEED;
-    STATE.dinoY = 0;
-    STATE.dinoVy = 0;
-    STATE.obstacles = [];
-    STATE.coins = [];
-    STATE.frames = 0;
-    
-    const entities = document.querySelectorAll('.obstacle, .coin, .diamond');
-    entities.forEach(e => e.remove());
-    
-    resetSkillCooldowns();
-
-    els.dino.src = "assets/dino.png";
-    els.dino.style.transform = "rotate(0deg)";
-    els.dino.style.filter = "none";
-    els.effectOverlay.style.opacity = 0;
-    
-    draw();
-}
-
-/* ================= GAME LOOP ================= */
+/* GAME OBJECTS */
+let bucket = { x: 0, y: 0, width: 60, height: 40 };
+let objects = []; 
+let keys = { left: false, right: false }; // Updated to abstract keys/touch
 let lastTime = 0;
-function loop(timestamp) {
-    if (!STATE.isPlaying) return;
-    
-    const dt = timestamp - lastTime;
-    
-    if (!STATE.isPaused && !STATE.isGameOver) {
-        if (dt > 16) { 
-            update();
-            draw();
-            lastTime = timestamp;
-        }
-    }
-    requestAnimationFrame(loop);
-}
+let spawnTimer = 0;
+let uiTimer = 0; 
 
-function update() {
-    STATE.frames++;
-    
-    if (STATE.frames % 60 === 0) {
-        STATE.timeAlive++;
-        STATE.gameTime++;
-        if (STATE.gameTime > 0 && STATE.gameTime % CONFIG.SHOP_INTERVAL === 0) {
-            openShop();
-        }
-    }
-    STATE.distance += (STATE.speed / 10);
-    
-    applyPhysics();
-    moveEntities();
-    spawnManager();
-    checkCollisions();
-    
-    els.uiDist.innerText = Math.floor(STATE.distance);
-    els.uiTime.innerText = STATE.timeAlive;
-    els.uiMoney.innerText = STATE.money;
-}
+/* DOM ELEMENTS */
+const cvs = document.getElementById('game-canvas');
+const ctx = cvs.getContext('2d');
+const uiScore = document.getElementById('score-display');
+const uiTime = document.getElementById('time-display');
+const uiStage = document.getElementById('stage-display');
+const uiStreak = document.getElementById('streak-display');
+const charImg = document.getElementById('char-img');
 
-/* ================= PHYSICS & MECHANICS ================= */
-function applyPhysics() {
-    // Apply Velocity
-    STATE.dinoY += STATE.dinoVy;
-    
-    // Gravity (Only if in air)
-    if (STATE.dinoY > 0 || STATE.dinoVy > 0) {
-        STATE.dinoVy += CONFIG.GRAVITY;
-    }
-    
-    // Floor Collision
-    if (STATE.dinoY <= 0) {
-        STATE.dinoY = 0;
-        STATE.dinoVy = 0;
-        STATE.isJumping = false;
-    }
-
-    // Ducking Hitbox Visual (This line toggles the dino size: 60px default, 30px ducking)
-    els.dino.style.height = STATE.isDucking ? "30px" : "60px";
-}
-
-function spawnManager() {
-    const spawnRateMod = 1 + (STATE.stat_risk_lvl * 0.10); 
-    const obsSpeedMod = 1 + (STATE.stat_risk_lvl * 0.05);
-
-    // Obstacles
-    if (Math.random() < 0.015) {
-        if (STATE.obstacles.length === 0 || 
-           (800 - STATE.obstacles[STATE.obstacles.length-1].x > 300)) { 
-            spawnObstacle(obsSpeedMod);
-        }
-    }
-
-    // Coins
-    if (Math.random() < (0.01 * spawnRateMod)) {
-        spawnCoin();
-    }
-}
-
-function spawnObstacle(speedMod) {
-    const type = Math.random() > 0.7 ? 'bird' : 'cactus';
-    const el = document.createElement('img');
-    el.className = `obstacle ${type}`;
-    el.src = type === 'bird' ? 'assets/bird.png' : 'assets/cactus.png';
-    els.world.appendChild(el);
-
-    // Bird Heights: Low Bird (must jump): 10px; High Bird (must duck): 50px
-    let obsY = 0;
-    if (type === 'bird') {
-        obsY = Math.random() > 0.5 ? 10 : 50;
-    }
-
-    STATE.obstacles.push({
-        el: el,
-        x: 900,
-        y: obsY,
-        w: type === 'bird' ? 40 : 30,
-        h: type === 'bird' ? 30 : 50,
-        type: type,
-        speed: STATE.speed * speedMod
+/* INITIALIZATION */
+function init() {
+    let loaded = 0;
+    imageFiles.forEach(file => {
+        const img = new Image();
+        img.src = `assets/${file}`;
+        img.onload = () => { loaded++; };
+        assets.images[file] = img;
     });
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    setupListeners();
+    updateCharacterImage();
 }
 
-function spawnCoin() {
-    const isDiamond = Math.random() < (0.1 + (STATE.stat_luck_lvl * 0.05));
-    const el = document.createElement('div');
-    el.className = isDiamond ? 'diamond' : 'coin';
-    el.innerText = isDiamond ? '20' : '$';
-    els.world.appendChild(el);
+function resizeCanvas() {
+    const parent = cvs.parentElement;
+    cvs.width = parent.clientWidth;
+    cvs.height = parent.clientHeight;
+    
+    // Dynamic Bucket Size
+    bucket.width = cvs.width * constants.bucketWidthRatio;
+    bucket.height = cvs.height * constants.bucketHeightRatio;
+    bucket.y = cvs.height - bucket.height - 10;
+    
+    // Keep bucket inside if resize happens
+    if (bucket.x > cvs.width - bucket.width) bucket.x = cvs.width - bucket.width;
+}
 
-    STATE.coins.push({
-        el: el,
-        x: 900,
-        y: Math.random() * 100 + 40,
-        w: 30,
-        h: 30,
-        value: isDiamond ? 20 : 1
+function setupListeners() {
+    // Keyboard
+    window.addEventListener('keydown', e => {
+        if(e.key === 'ArrowLeft') keys.left = true;
+        if(e.key === 'ArrowRight') keys.right = true;
     });
-}
+    window.addEventListener('keyup', e => {
+        if(e.key === 'ArrowLeft') keys.left = false;
+        if(e.key === 'ArrowRight') keys.right = false;
+    });
 
-function moveEntities() {
-    // Obstacles
-    for (let i = STATE.obstacles.length - 1; i >= 0; i--) {
-        let obs = STATE.obstacles[i];
-        
-        let moveSpeed = obs.speed;
-        if (STATE.skills[1].active) { // Skill 1: Time Slow
-            let slowAmt = 0.05 * STATE.skills[1].level; 
-            moveSpeed = moveSpeed * (1 - slowAmt);
-        }
+    // Touch Controls
+    cvs.addEventListener('touchstart', handleTouch, {passive: false});
+    cvs.addEventListener('touchmove', handleTouch, {passive: false});
+    cvs.addEventListener('touchend', () => {
+        keys.left = false;
+        keys.right = false;
+    });
 
-        obs.x -= moveSpeed;
-        
-        if (obs.x < -100) {
-            obs.el.remove();
-            STATE.obstacles.splice(i, 1);
-        }
-    }
-
-    // Coins
-    for (let i = STATE.coins.length - 1; i >= 0; i--) {
-        let c = STATE.coins[i];
-        c.x -= STATE.speed;
-        if (c.x < -100) {
-            c.el.remove();
-            STATE.coins.splice(i, 1);
-        }
-    }
-}
-
-function checkCollisions() {
-    // Dino Hitbox (Relative to game world 0, not screen)
-    const dinoRect = {
-        x: 50 + 10,
-        y: STATE.dinoY,
-        w: 40,
-        // DUCKING COLLISION: height changes when ducking
-        h: STATE.isDucking ? 30 : 60
+    // UI Buttons
+    document.getElementById('btn-play').onclick = () => showScreen('difficulty');
+    document.getElementById('btn-change').onclick = switchCharacter;
+    
+    document.getElementById('btn-admin').onclick = () => {
+        document.getElementById('admin-panel').classList.remove('hidden');
+    };
+    document.getElementById('btn-submit-admin').onclick = checkAdmin;
+    document.getElementById('btn-hell').onclick = () => {
+        document.getElementById('hell-text').classList.remove('hidden');
     };
 
-    // Obstacles
-    if (!STATE.skills[2].active && !STATE.skills[3].active) {
-        STATE.obstacles.forEach(obs => {
-            if (rectIntersect(dinoRect, obs)) {
-                gameOver();
-            }
-        });
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+        btn.onclick = () => startGame(btn.dataset.diff);
+    });
+
+    document.getElementById('btn-menu').onclick = () => {
+        playAudio('fail'); 
+        showScreen('menu');
+    };
+}
+
+function handleTouch(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = cvs.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+
+    // Simple Logic: Left half screen = Left, Right half screen = Right
+    if (touchX < cvs.width / 2) {
+        keys.left = true;
+        keys.right = false;
+    } else {
+        keys.left = false;
+        keys.right = true;
+    }
+}
+
+/* LOGIC */
+function showScreen(screenName) {
+    document.querySelectorAll('#main-area > div, canvas').forEach(el => el.classList.add('hidden'));
+    
+    assets.audio.menu.pause();
+    assets.audio.game.pause();
+    assets.audio.menu.currentTime = 0;
+    assets.audio.game.currentTime = 0;
+
+    if (screenName === 'menu') {
+        document.getElementById('menu-screen').classList.remove('hidden');
+        document.getElementById('ui-info').classList.add('hidden');
+        assets.audio.menu.play().catch(()=>{});
+        state.characterPhase = 'a';
+        updateCharacterImage();
+    } else if (screenName === 'difficulty') {
+        document.getElementById('difficulty-screen').classList.remove('hidden');
+    } else if (screenName === 'game') {
+        cvs.classList.remove('hidden');
+        document.getElementById('ui-info').classList.remove('hidden');
+        resizeCanvas(); // Ensure size is correct before start
+        bucket.x = cvs.width / 2 - bucket.width / 2; // Center bucket
+        assets.audio.game.play().catch(()=>{});
+    } else if (screenName === 'end') {
+        document.getElementById('end-screen').classList.remove('hidden');
+        assets.audio.fail.play().catch(()=>{});
+    }
+}
+
+function switchCharacter() {
+    state.characterSet = state.characterSet === 1 ? 2 : 1;
+    updateCharacterImage();
+}
+
+function updateCharacterImage() {
+    const filename = `standby${state.characterSet}${state.characterPhase}.png`;
+    charImg.src = `assets/${filename}`;
+}
+
+function checkAdmin() {
+    const code = document.getElementById('admin-input').value;
+    if (code === '1234') {
+        document.getElementById('admin-panel').classList.add('hidden');
+        document.getElementById('hell-mode').classList.remove('hidden');
+    }
+}
+
+function startGame(diff) {
+    state.difficulty = diff;
+    state.stage = 1;
+    state.score = 0;
+    resetStage();
+    state.gameRunning = true;
+    showScreen('game');
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function resetStage() {
+    state.timeLeft = 60;
+    state.streakCount = 0;
+    state.isStreakActive = false;
+    state.streakTimer = 0;
+    objects = [];
+    uiScore.innerText = state.score;
+    uiTime.innerText = state.timeLeft;
+    uiStage.innerText = state.stage;
+}
+
+function playAudio(type) {
+    if (type === 'fail') {
+        assets.audio.fail.currentTime = 0;
+        assets.audio.fail.play().catch(()=>{});
+    }
+}
+
+/* GAME LOOP */
+function gameLoop(timestamp) {
+    if (!state.gameRunning) return;
+
+    const dt = (timestamp - lastTime) / 16.66; 
+    lastTime = timestamp;
+
+    update(dt);
+    draw();
+
+    if (state.gameRunning) requestAnimationFrame(gameLoop);
+}
+
+function update(dt) {
+    spawnTimer += dt;
+    uiTimer += dt;
+    
+    if (uiTimer >= 60) { 
+        state.timeLeft--;
+        uiTime.innerText = state.timeLeft;
+        if (state.isStreakActive) state.streakTimer += 1;
+        uiTimer = 0;
     }
 
-    // Coins
-    for (let i = STATE.coins.length - 1; i >= 0; i--) {
-        let c = STATE.coins[i];
-        if (rectIntersect(dinoRect, c)) {
-            STATE.money += c.value;
-            c.el.remove();
-            STATE.coins.splice(i, 1);
+    const target = constants.stageTargets[state.difficulty][state.stage - 1];
+    if (state.timeLeft <= 0) {
+        if (state.score >= target) {
+            advanceStage();
+        } else {
+            gameOver();
         }
     }
+
+    // Dynamic Speed based on screen width
+    const currentSpeed = (cvs.width / 100) * 1.5; // Scale speed with width
+
+    if (keys.left && bucket.x > 0) bucket.x -= currentSpeed * dt;
+    if (keys.right && bucket.x < cvs.width - bucket.width) bucket.x += currentSpeed * dt;
+
+    if (spawnTimer > 30) { 
+        attemptSpawn();
+        spawnTimer = 0;
+    }
+
+    for (let i = objects.length - 1; i >= 0; i--) {
+        let obj = objects[i];
+        
+        // Speed scaling for height
+        const verticalScale = cvs.height / 600;
+        obj.y += (obj.speed * verticalScale) * dt;
+
+        if (obj.type === 'bomb') obj.rotation += 0.05 * dt;
+
+        if (checkCollision(obj, bucket)) {
+            handleCatch(obj);
+            objects.splice(i, 1);
+            continue;
+        }
+
+        if (obj.y > cvs.height) {
+            if (obj.type !== 'bomb') resetStreak();
+            objects.splice(i, 1);
+        }
+    }
+
+    updateUI();
 }
 
-function rectIntersect(r1, r2) {
-    return !(r2.x > r1.x + r1.w || 
-             r2.x + r2.w < r1.x || 
-             r2.y > r1.y + r1.h || 
-             r2.y + r2.h < r1.y);
+function attemptSpawn() {
+    const totalWeight = 201;
+    const r = Math.random() * totalWeight;
+    
+    let type = 'normal';
+    if (r < 100) type = 'normal';
+    else if (r < 150) type = 'nnormal';
+    else if (r < 200) type = 'bomb';
+    else type = 'streak';
+
+    let newObj = createObject(type);
+    let attempts = 0;
+    let valid = false;
+
+    while (attempts < 5 && !valid) {
+        newObj.x = Math.random() * (cvs.width - newObj.width);
+        valid = true;
+        
+        for (let o of objects) {
+            if (o.y < 100) { 
+                if (Math.abs(o.x - newObj.x) < (o.width + newObj.width)) {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        attempts++;
+    }
+
+    if (valid) objects.push(newObj);
 }
 
-function draw() {
-    // Apply Visual Offset (Lifting the game up)
-    const offset = CONFIG.VISUAL_OFFSET;
+function createObject(type) {
+    // Relative scale based on screen width
+    const scaleRef = cvs.width / 550; 
+    
+    let props = {};
+    if (type === 'normal') { props = { src: 'normal.png', score: 10, spd: 3.0, w: 40 }; }
+    if (type === 'nnormal') { props = { src: 'nnormal.png', score: 20, spd: 4.5, w: 32 }; }
+    if (type === 'bomb') { props = { src: 'bomb.png', score: -25, spd: 2.4, w: 40 }; }
+    if (type === 'streak') { props = { src: 'streak.png', score: 0, spd: 6.0, w: 20 }; }
 
-    els.dino.style.bottom = (STATE.dinoY + offset) + "px";
+    const size = props.w * scaleRef;
 
-    STATE.obstacles.forEach(obs => {
-        obs.el.style.left = obs.x + "px";
-        obs.el.style.bottom = (obs.y + offset) + "px";
-    });
+    return {
+        type: type,
+        x: 0, 
+        y: -size - 10,
+        width: size,
+        height: size, 
+        speed: props.spd,
+        scoreVal: props.score,
+        img: assets.images[props.src],
+        rotation: 0
+    };
+}
 
-    STATE.coins.forEach(c => {
-        c.el.style.left = c.x + "px";
-        c.el.style.bottom = (c.y + offset) + "px";
-    });
+function checkCollision(obj, bkt) {
+    return (
+        obj.x < bkt.x + bkt.width &&
+        obj.x + obj.width > bkt.x &&
+        obj.y < bkt.y + bkt.height &&
+        obj.y + obj.height > bkt.y
+    );
+}
+
+function handleCatch(obj) {
+    if (obj.type === 'bomb') {
+        state.score += obj.scoreVal;
+        resetStreak();
+    } else if (obj.type === 'streak') {
+        state.score *= 2;
+        incrementStreak();
+    } else {
+        let points = obj.scoreVal;
+        if (state.isStreakActive) {
+            const bonusPercent = Math.floor(state.streakTimer / 10) * 0.1;
+            points = points * (1 + bonusPercent);
+        }
+        state.score += Math.floor(points);
+        incrementStreak();
+    }
+}
+
+function incrementStreak() {
+    state.streakCount++;
+    if (state.streakCount >= 3) {
+        state.isStreakActive = true;
+    }
+}
+
+function resetStreak() {
+    state.streakCount = 0;
+    state.isStreakActive = false;
+    state.streakTimer = 0;
+}
+
+function updateUI() {
+    uiScore.innerText = state.score;
+    uiStreak.innerText = state.isStreakActive ? `ACTIVE (${Math.floor(state.streakTimer)}s)` : `${state.streakCount}/3`;
+}
+
+function advanceStage() {
+    if (state.stage < 3) {
+        state.stage++;
+        if (state.characterPhase === 'a') state.characterPhase = 'b';
+        else if (state.characterPhase === 'b') state.characterPhase = 'c';
+        else state.characterPhase = 'a';
+        
+        updateCharacterImage();
+        resetStage();
+    } else {
+        gameWin();
+    }
 }
 
 function gameOver() {
-    STATE.isPlaying = false;
-    STATE.isGameOver = true;
-    els.bgm.pause();
-    els.sfxDead.play();
-    els.startTitle.innerText = "GAME OVER";
-    els.startScreen.classList.remove('hidden');
+    state.gameRunning = false;
+    document.getElementById('end-title').innerText = "Stage Failed";
+    document.getElementById('end-score').innerText = `Final Score: ${state.score}`;
+    playAudio('fail');
+    showScreen('end');
 }
 
-/* ================= INPUTS ================= */
-function handleKeyDown(e) {
-    if (STATE.isShopOpen) return;
+function gameWin() {
+    state.gameRunning = false;
+    document.getElementById('end-title').innerText = "All Stages Cleared!";
+    document.getElementById('end-score').innerText = `Final Score: ${state.score}`;
+    playAudio('fail'); 
+    showScreen('end');
+}
+
+function draw() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
     
-    if (e.code === 'Space' || e.code === 'ArrowUp') jump();
-    
-    if (e.code === 'ArrowDown') {
-        STATE.isDucking = true; // Set duck state on key down
-    }
-    
-    if (e.code === 'Digit1') useSkill(1);
-    if (e.code === 'Digit2') useSkill(2);
-    if (e.code === 'Digit3') useSkill(3);
-}
+    ctx.fillStyle = '#888';
+    ctx.fillRect(bucket.x, bucket.y, bucket.width, bucket.height);
 
-function handleKeyUp(e) {
-    if (e.code === 'ArrowDown') STATE.isDucking = false; // Reset duck state on key up
-}
-
-function handleTouchStart(e) {
-    // Ignore taps on the skill and duck buttons
-    if (STATE.isShopOpen || e.target.closest('#skills-container') || e.target.id === 'duck-btn') return;
-    jump();
-}
-
-function jump() {
-    // Can only jump if near ground (tolerance 5px)
-    if (Math.abs(STATE.dinoY) < 5) {
-        STATE.dinoVy = CONFIG.JUMP_FORCE;
-        STATE.isJumping = true;
-    }
-}
-
-/* ================= SKILLS & SHOP ================= */
-function useSkill(id) {
-    const skill = STATE.skills[id];
-    if (!skill.unlocked || skill.active || skill.cd > 0) return;
-
-    skill.active = true;
-    skill.cd = skill.maxCd * (1 - Math.min(0.75, STATE.stat_cd_lvl * 0.05));
-
-    activateSkillEffect(id);
-    startCooldownUI(id, skill.cd);
-}
-
-function activateSkillEffect(id) {
-    const skill = STATE.skills[id];
-    let durationSec = 1 + skill.level;
-
-    if (id === 1) { // Slow
-        els.effectOverlay.style.background = "rgba(100, 255, 100, 0.2)";
-        els.effectOverlay.style.opacity = 1;
-        setTimeout(() => {
-            skill.active = false;
-            els.effectOverlay.style.opacity = 0;
-        }, 5000); 
-    } 
-    else if (id === 2) { // Shield
-        els.dino.style.filter = "drop-shadow(0 0 10px cyan)";
-        setTimeout(() => {
-            skill.active = false;
-            els.dino.style.filter = "none";
-        }, durationSec * 1000);
-    } 
-    else if (id === 3) { // Meteor
-        const speedBoost = 0.5 + (0.1 * skill.level);
-        els.dino.src = "assets/metor.png";
-        const oldSpeed = STATE.speed;
-        STATE.speed = STATE.speed * (1 + speedBoost);
+    objects.forEach(obj => {
+        ctx.save();
+        ctx.translate(obj.x + obj.width/2, obj.y + obj.height/2);
+        if (obj.rotation) ctx.rotate(obj.rotation);
         
-        setTimeout(() => {
-            skill.active = false;
-            els.dino.src = "assets/dino.png";
-            STATE.speed = oldSpeed;
-        }, durationSec * 1000);
-    }
-}
-
-function startCooldownUI(id, seconds) {
-    const btn = document.getElementById(`btn-skill-${id}`);
-    const overlay = btn.querySelector('.cooldown-overlay');
-    overlay.style.transition = `height ${seconds}s linear`;
-    overlay.style.height = '100%';
-    void overlay.offsetWidth; 
-    overlay.style.height = '0%';
-    
-    setTimeout(() => { STATE.skills[id].cd = 0; }, seconds * 1000);
-}
-
-function resetSkillCooldowns() {
-    for(let k in STATE.skills) {
-        STATE.skills[k].cd = 0;
-        STATE.skills[k].active = false;
-        const overlay = document.getElementById(`btn-skill-${k}`).querySelector('.cooldown-overlay');
-        overlay.style.transition = 'none';
-        overlay.style.height = '0%';
-    }
-}
-
-function openShop() {
-    STATE.isPaused = true;
-    STATE.isShopOpen = true;
-    els.shop.classList.remove('hidden');
-    els.bgm.pause();
-    updateShopUI();
-}
-
-function closeShop() {
-    STATE.isPaused = false;
-    STATE.isShopOpen = false;
-    els.shop.classList.add('hidden');
-    els.bgm.play();
-    lastTime = performance.now(); 
-}
-
-function updateShopUI() {
-    const costRisk = 100 + (STATE.stat_risk_lvl * 10);
-    document.getElementById('buy-risk').innerText = `Buy $${costRisk}`;
-    
-    const costCd = 150 + (STATE.stat_cd_lvl * 20);
-    const cdBtn = document.getElementById('buy-cd');
-    cdBtn.innerText = STATE.stat_cd_lvl >= 15 ? "MAX" : `Buy $${costCd}`;
-    cdBtn.disabled = STATE.stat_cd_lvl >= 15;
-
-    const costLuck = 200 + (STATE.stat_luck_lvl * 10);
-    const luckBtn = document.getElementById('buy-luck');
-    luckBtn.innerText = STATE.stat_luck_lvl >= 10 ? "MAX" : `Buy $${costLuck}`;
-    luckBtn.disabled = STATE.stat_luck_lvl >= 10;
-
-    const s1 = STATE.skills[1];
-    document.getElementById('upg-skill-1').innerText = `Lvl ${s1.level+1} ($50)`;
-
-    const s2 = STATE.skills[2];
-    document.getElementById('upg-skill-2').innerText = s2.unlocked ? `Lvl ${s2.level+1} ($100)` : `Unlock ($200)`;
-
-    const s3 = STATE.skills[3];
-    document.getElementById('upg-skill-3').innerText = s3.unlocked ? `Lvl ${s3.level+1} ($200)` : `Unlock ($300)`;
-}
-
-window.buyStat = function(type) {
-    let cost = 0;
-    if (type === 'risk') {
-        cost = 100 + (STATE.stat_risk_lvl * 10);
-        if (STATE.money >= cost) { STATE.money -= cost; STATE.stat_risk_lvl++; }
-    } else if (type === 'cd') {
-        if (STATE.stat_cd_lvl >= 15) return;
-        cost = 150 + (STATE.stat_cd_lvl * 20);
-        if (STATE.money >= cost) { STATE.money -= cost; STATE.stat_cd_lvl++; }
-    } else if (type === 'luck') {
-        if (STATE.stat_luck_lvl >= 10) return;
-        cost = 200 + (STATE.stat_luck_lvl * 10);
-        if (STATE.money >= cost) { STATE.money -= cost; STATE.stat_luck_lvl++; }
-    }
-    updateShopUI();
-    els.uiMoney.innerText = STATE.money;
-};
-
-window.upgradeSkill = function(id) {
-    const skill = STATE.skills[id];
-    let cost = 0;
-
-    if (id === 1) cost = 50;
-    else if (id === 2) cost = skill.unlocked ? 100 : 200;
-    else if (id === 3) cost = skill.unlocked ? 200 : 300;
-
-    if (STATE.money >= cost) {
-        STATE.money -= cost;
-        if ((id === 2 || id === 3) && !skill.unlocked) {
-            skill.unlocked = true;
-            document.getElementById(`btn-skill-${id}`).classList.remove('locked');
+        if (obj.img) {
+            ctx.drawImage(obj.img, -obj.width/2, -obj.height/2, obj.width, obj.height);
         } else {
-            skill.level++;
+            ctx.fillStyle = 'red';
+            ctx.fillRect(-obj.width/2, -obj.height/2, obj.width, obj.height);
         }
-    }
-    updateShopUI();
-    els.uiMoney.innerText = STATE.money;
-};
+        ctx.restore();
+    });
+}
 
-init();
+window.onload = init;

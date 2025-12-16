@@ -3,92 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dino Runner Remake</title>
+    <title>Bia</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="game-container">
-        
-        <div id="background"></div>
-
-        <div id="hud">
-            <div class="hud-item">Dist: <span id="ui-dist">0</span>m</div>
-            <div class="hud-item">Time: <span id="ui-time">0</span>s</div>
-            <div class="hud-item money">$: <span id="ui-money">0</span></div>
-        </div>
-
-        <div id="skills-container">
-            <div class="skill-btn" id="btn-skill-1" onclick="useSkill(1)">
-                <span>Slow</span>
-                <div class="cooldown-overlay"></div>
-            </div>
-            <div class="skill-btn locked" id="btn-skill-2" onclick="useSkill(2)">
-                <span>Shield</span>
-                <div class="cooldown-overlay"></div>
-            </div>
-            <div class="skill-btn locked" id="btn-skill-3" onclick="useSkill(3)">
-                <span>Meteor</span>
-                <div class="cooldown-overlay"></div>
+        <div id="side-panel">
+            <img id="char-img" src="assets/standby1a.png" alt="Character">
+            <div id="ui-info" class="hidden">
+                <p>Score: <span id="score-display">0</span></p>
+                <p>Time: <span id="time-display">60</span></p>
+                <p>Stage: <span id="stage-display">1</span></p>
+                <p>Streak: <span id="streak-display">Inactive</span></p>
             </div>
         </div>
 
-        <div id="mobile-controls">
-            <div id="duck-btn">DUCK</div>
-        </div>
-
-        <div id="world">
-            <img id="dino" src="assets/dino.png" alt="Dino">
-        </div>
-
-        <div id="shop-overlay" class="hidden">
-            <h2>TRADER'S STOP</h2>
-            <div class="shop-grid">
-                <div class="shop-item" onclick="buyStat('risk')">
-                    <h3>Risk Reward</h3>
-                    <p>Obstacles +5% Spd, Money +10%</p>
-                    <button id="buy-risk">Buy $100</button>
+        <div id="main-area">
+            
+            <div id="menu-screen">
+                <h1>BIA</h1>
+                <button id="btn-play">Play</button>
+                <button id="btn-change">Change Character</button>
+                <button id="btn-admin">Admin</button>
+                <div id="admin-panel" class="hidden">
+                    <input type="text" id="admin-input" placeholder="Code">
+                    <button id="btn-submit-admin">Enter</button>
+                    <p id="admin-msg"></p>
                 </div>
-                <div class="shop-item" onclick="buyStat('cd')">
-                    <h3>Quick Reflex</h3>
-                    <p>Cooldowns -5%</p>
-                    <button id="buy-cd">Buy $150</button>
-                </div>
-                <div class="shop-item" onclick="buyStat('luck')">
-                    <h3>Luck</h3>
-                    <p>Diamond Chance +5%</p>
-                    <button id="buy-luck">Buy $200</button>
-                </div>
-                
-                <div class="shop-item" onclick="upgradeSkill(1)">
-                    <h3>Upgrade Slow</h3>
-                    <p>Slower Time</p>
-                    <button id="upg-skill-1">Buy $50</button>
-                </div>
-                <div class="shop-item" onclick="upgradeSkill(2)">
-                    <h3>Unlock/Upg Shield</h3>
-                    <p>Invincible Duration</p>
-                    <button id="upg-skill-2">Unlock $200</button>
-                </div>
-                <div class="shop-item" onclick="upgradeSkill(3)">
-                    <h3>Unlock/Upg Meteor</h3>
-                    <p>Meteor Mode</p>
-                    <button id="upg-skill-3">Unlock $300</button>
+                <div id="hell-mode" class="hidden">
+                    <button id="btn-hell">HELL</button>
+                    <p id="hell-text" class="hidden">you get troll</p>
                 </div>
             </div>
-            <button id="close-shop">RESUME RUN</button>
-        </div>
 
-        <div id="start-screen">
-            <h1 id="start-title">DINO RUNNER</h1>
-            <p>Tap to Start</p>
+            <div id="difficulty-screen" class="hidden">
+                <h2>Select Difficulty</h2>
+                <button data-diff="easy" class="diff-btn">Easy</button>
+                <button data-diff="hard" class="diff-btn">Hard</button>
+            </div>
+
+            <canvas id="game-canvas" class="hidden"></canvas>
+
+            <div id="end-screen" class="hidden">
+                <h2 id="end-title">Game Over</h2>
+                <p id="end-score"></p>
+                <button id="btn-menu">Return to Menu</button>
+            </div>
         </div>
-        
-        <div id="effect-overlay"></div>
     </div>
 
-    <audio id="bgm" src="assets/music.mp3" loop></audio>
-    <audio id="sfx-dead" src="assets/dead.mp3"></audio>
+    <audio id="bgm-menu" src="assets/menu_music.mp3" loop></audio>
+    <audio id="bgm-game" src="assets/game_music.mp3" loop></audio>
+    <audio id="sfx-fail" src="assets/soundeffect.mp3"></audio>
 
     <script src="script.js"></script>
 </body>
