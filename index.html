@@ -10,8 +10,11 @@
 
     <div id="game-container">
         <div id="side-panel">
-            <img id="char-img" src="assets/standby1a.png" alt="Character">
+            <div id="char-container">
+                <img id="char-img" src="assets/standby1a.png" alt="Character">
+            </div>
             <div id="ui-info" class="hidden">
+                <p>Target: <span id="target-display">0</span></p>
                 <p>Score: <span id="score-display">0</span></p>
                 <p>Time: <span id="time-display">60</span></p>
                 <p>Stage: <span id="stage-display">1</span></p>
@@ -20,7 +23,6 @@
         </div>
 
         <div id="main-area">
-            
             <div id="menu-screen">
                 <h1>BIA</h1>
                 <button id="btn-play">Play</button>
@@ -29,7 +31,6 @@
                 <div id="admin-panel" class="hidden">
                     <input type="text" id="admin-input" placeholder="Code">
                     <button id="btn-submit-admin">Enter</button>
-                    <p id="admin-msg"></p>
                 </div>
                 <div id="hell-mode" class="hidden">
                     <button id="btn-hell">HELL</button>
